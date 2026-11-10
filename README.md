@@ -27,7 +27,7 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya teljes jelét kezeli*
 
 ## Letöltés és telepítés
 
-1. Töltsd le a **[Releases](https://github.com/rknoise/rksubbyV2/releases)** oldalról **mind a három fájlt** ugyanabba a mappába:
+1. Töltsd le a **[Releases](https://github.com/rknoise/RKSUBBYV3/releases)** oldalról **mind a három fájlt** ugyanabba a mappába:
    - `rksubby_V3_Setup.exe`
    - `rksubby_V3_Setup-1.bin`
    - `rksubby_V3_Setup-2.bin`

@@ -638,7 +638,7 @@ class MainWindow(QMainWindow):
         try:
             import requests
 
-            r = requests.get("https://api.github.com/repos/rknoise/rksubbyV2/releases/latest", timeout=6,
+            r = requests.get("https://api.github.com/repos/rknoise/RKSUBBYV3/releases/latest", timeout=6,
                              headers={"Accept": "application/vnd.github+json"})
             if r.status_code != 200:
                 return
