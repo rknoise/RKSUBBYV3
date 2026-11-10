@@ -1,10 +1,14 @@
-# rksubbyV2 - csomagok (az install.bat mindet felteszi, a saját .venv környezetbe)
-faster-whisper>=1.2.1
-sounddevice>=0.5
+# rksubby V3 - fejlesztői csomagok (a telepítő mindet tartalmazza)
+PySide6-Essentials>=6.8     # felület (Qt, LGPL)
+av>=14                      # PyAV: a capture kártya (DirectShow), NVENC-kódolás, export
+pysdl2                      # GPU-s előnézet (Direct3D 11) és hang
+pysdl2-dll
 numpy
+pillow
+faster-whisper>=1.2.1       # beszédfelismerés (+ Silero VAD)
 requests
-imageio-ffmpeg>=0.6     # ffmpeg: a capture kártya (pl. AVerMedia GC573) hangja a képpel együtt érkezik
-PyQt5>=5.15             # az átlátszó felirat-réteg (külön folyamatban fut)
-
-# Opcionális:
-#   deep-translator  -> régi Google-fordító (--translator google_web)
+# NVIDIA GPU-hoz: CUDA 12 / cuDNN 9 könyvtárak a faster-whisperhez
+nvidia-cublas-cu12
+nvidia-cudnn-cu12==9.*
+# telepítő építéséhez
+pyinstaller

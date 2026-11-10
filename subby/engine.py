@@ -41,6 +41,8 @@ class Engine:
         self.started_at = 0.0
         self.last_stats = None       # az utolsó menet fordítási statisztikája
         self.on_before_start = None  # pl. a varázsló hangszintmérőjének leállítása
+        self.source_factory = None   # V3: fn(on_audio) -> hangforrás (a rögzítő hangja); None = ffmpeg/hangkártya
+        self.monitor_enabled = True  # V3-ban a hangot a lejátszó szólaltatja meg, nem az AudioMonitor
         self.capture = self.translator = self.subtitler = self.monitor = None
         self._asr = None
         self._asr_req = None
@@ -173,7 +175,7 @@ class Engine:
             threads = [threading.Thread(target=sub.run, args=(audio_q, stop), daemon=True, name="asr"),
                        threading.Thread(target=display_loop, daemon=True, name="kijelzo",
                                         args=(display_q, self.sink, translator, stop, cfg.translate_timeout_s))]
-            monitor = AudioMonitor(cfg, log=self.log)    # a hang a hangszórón is szól (ha be van kapcsolva)
+            monitor = AudioMonitor(cfg, log=self.log) if self.monitor_enabled else _NoMonitor()
             if mode == "test":
                 path = wav_path or TEST_WAV
                 audio = load_audio_file(path)
@@ -185,7 +187,8 @@ class Engine:
                     feeder(x, rate, t)
                     monitor.push(x, rate)
 
-                cap = make_source(cfg, on_audio, log=self.log)
+                cap = (self.source_factory(on_audio) if self.source_factory
+                       else make_source(cfg, on_audio, log=self.log))
                 self.info["input"] = cap.start()
             self._step(f"Hangbemenet: {self.info['input']}", rid)
 
@@ -302,3 +305,15 @@ class Engine:
 
 class _Cancelled(Exception):
     pass
+
+
+class _NoMonitor:
+    stream = None
+    desc = ""
+    error = ""
+
+    def push(self, x, rate):
+        pass
+
+    def stop(self):
+        pass

@@ -21,6 +21,8 @@ def add_nvidia_dll_dirs():
     import site
 
     candidates = {p for p in sys.path if "site-packages" in p}
+    if getattr(sys, "frozen", False):          # telepített (PyInstaller) változat: _internal/nvidia/*/bin
+        candidates.add(getattr(sys, "_MEIPASS", os.path.dirname(sys.executable)))
     try:
         candidates.update(site.getsitepackages())
         candidates.add(site.getusersitepackages())

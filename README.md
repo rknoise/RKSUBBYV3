@@ -1,156 +1,149 @@
-<p align="center"><img src="Logo.jpg" alt="rksubbyV2 logó" width="240"></p>
+<p align="center"><img src="Logo_v3.png" alt="rksubby V3 logó" width="220"></p>
 
-# rksubbyV2 – élő magyar felirat angol beszédhez
+# rksubby V3 – Xbox-rögzítő élő magyar felirattal
 
-> **English summary:** rksubbyV2 turns English speech from a console (via a capture card such as the AVerMedia Live Gamer 4K) into live Hungarian subtitles. It shows the capture card's picture in its own always-on-top player window with the subtitles drawn on top, so OBS is no longer needed (an OBS browser source is still available). Speech is detected with Silero VAD, transcribed locally with faster-whisper on the GPU, and translated with DeepL. A one-click installer sets up Python, all packages, ffmpeg, the CUDA libraries and the speech model inside the project folder, and a setup wizard walks you through the rest. Typical delay from the end of a sentence to the Hungarian subtitle: about 0.6–0.8 s on an RTX 3090.
+> **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. Everything is configured behind a single gear button. One installer contains everything except the capture card driver and the speech model, which is downloaded on first use.
 
-Az Xboxon (vagy bármilyen HDMI-forráson) futó angol beszédet élőben magyar felirattá alakítja. A capture kártya képét a program a **saját, mindig legfelül lévő lejátszóablakában** mutatja, rajta a felirattal. **OBS nem kell hozzá**, de ha használod, az OBS-be is beteheted a feliratot.
+Az rksubby V3 már nem csak feliratoz: **a capture kártya teljes jelét kezeli**. Mutatja az Xbox képét 120 Hz-en, felveszi, és közben élőben magyar feliratot ír az angol beszédhez. A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
-## Újdonságok a 2.1-ben
+## Újdonságok a V3-ban
 
-- **Telepítés egy kattintással:** az `install.bat` mindent letölt és beállít (Python, csomagok, ffmpeg, NVIDIA-gyorsítás, felismerő modell), és asztali ikont készít. Előre telepített Python nem kell.
-- **Beállító varázsló:** grafikus ablak, ami lépésenként végigvezet a telepítéstől az indításig.
-- **Saját lejátszó, OBS nélkül:** a kártya képe egy mindig legfelül lévő ablakban, rajta a felirat. A hangot a program a kártyáról olvassa, és a hangszóródon is lejátssza. VB-CABLE nem kell.
-- **Átlátszó felirat-réteg:** csak a felirat, a képernyő alján, minden ablak fölött (pl. ha más programban nézed a képet).
-- **Vezérlőpult:** indítás és leállítás, hangszint, késés, legutóbbi feliratok, DeepL-keret, szünet, SRT-mentés.
-- **Játékprofilok:** nevek és helyek a jobb felismeréshez, glosszárium a fordításhoz (GTA V, GTA VI, RDR2, általános, sajátok).
-- Gyorsabb és stabilabb működés: nincs fölösleges GPU-munka, a kártya vagy a bemenet elhalásakor magától újranyit, az OBS-felirat késés nélkül, élőben frissül.
+- **Valódi 1080p120 előnézet.** A kép közvetlenül a videokártyán jelenik meg (Direct3D 11), a színátalakítás és a skálázás is ott történik. Mért érték: 119,9 fps a kártyáról és az előnézetben is, a processzor terhelése felvétel közben ~2%.
+- **Felvétel a jelhez igazítva, beállítás nélkül.** 1080p120 jelből 1080p120 fájl, 4K60-ból 4K60. A program indításkor és jelváltáskor felismeri a felbontást és a képkockasebességet. NVIDIA NVENC kódolás (HEVC vagy H.264), AAC hang a kártyáról. Áramszünet vagy összeomlás után is lejátszható MP4.
+- **Felirat a képen és a felvétel mellett.** Az élő felirat a képre kerül, és minden felvétel mellé `.srt` fájl készül (a VLC és az MPC magától betölti). Az **Export felirattal** gomb egy olyan változatot készít, amelybe a felirat bele van égetve.
+- **Új, egységes felület.** Sötétkék téma rózsaszín–lila–kék kiemeléssel. Középen a kép, alatta a felvétel vezérlői, oldalt az élő felirat, az utolsó mondatok és a felvételek listája.
+- **Minden beállítás egy fogaskerék mögött.** Fordító (DeepL, Lokális AI, Google, nincs), DeepL-kulcs beillesztése és ellenőrzése, beszédfelismerő modell, felirat kinézete, felvételi mappa és minőség, capture kártya, hang.
+- **Valódi telepítő.** `rksubby_V3_Setup.exe`: Python, Qt, FFmpeg, SDL2, faster-whisper és az NVIDIA CUDA-könyvtárak is benne vannak. Rendszergazdai jog nem kell, és a Gépház › Alkalmazások alól eltávolítható.
+- **Egy példány.** A második indítás az elsőt hozza előre, így nem veszik el egymástól a kártyát.
+- **Biztonság.** A kártyát kizárólag a szabványos DirectShow-úton nyitja meg (mint az OBS). Gyártói, nem dokumentált driver-hívást nem használ.
 
-## Telepítés
+## Letöltés és telepítés
 
-1. Töltsd le a projektet (zöld **Code** gomb → **Download ZIP**), és csomagold ki egy olyan mappába, amelynek az útvonalában **nincs ékezet**, pl. `C:\rksubbyV2`.
-2. Futtasd az **`install.bat`**-ot. Kb. 5–15 perc, a sebesség az internettől függ. NVIDIA-kártyánál kb. 4 GB-ot tölt le (csomagok, CUDA-könyvtárak, modell), anélkül kevesebbet.
-3. Indítsd az asztali **rksubby** ikonnal. Az első indításkor a beállító varázsló nyílik meg.
+1. Töltsd le a **[Releases](https://github.com/rknoise/rksubbyV2/releases)** oldalról a `rksubby_V3_Setup.exe`-t.
+2. Futtasd. Kb. 2–4 GB helyet foglal (a CUDA-könyvtárak miatt), rendszergazdai jog nem kell.
+3. Indítsd az asztali **rksubby V3** ikonnal.
 
-Minden a projektmappába kerül (`.venv`, `.tools`), a felismerő modell a Hugging Face gyorsítótárába. **Eltávolítás:** töröld a mappát és az asztali ikont.
+Az első feliratozáskor a program egyszer letölti a beszédfelismerő modellt (distil-large-v3, kb. 1,5 GB, pár perc). A régi V2 beállításait (DeepL-kulcs, játékprofil, felirat stílusa) a V3 magától átveszi, mert ugyanabban a mappában vannak: `%USERPROFILE%\.rksubby`.
 
-### A varázsló lépései
+**Amit a telepítő nem tud feltenni:** a capture kártya illesztőprogramját (pl. AVerMedia GC573 a gyártó oldaláról). Ha nem találja a kártyát, a telepítő szól.
 
-1. **Telepítés:** ellenőrzi, megvan-e minden (Python, csomagok, NVIDIA, modell, capture kártya, ffmpeg, Edge). Ami hiányzik, egy gombbal pótolható.
-2. **Forrás:** kiválasztod a képforrást (pl. `AVerMedia HD Capture GC573 1`) élő előnézettel. A hangforrás magától a kártya hangjára áll, hangszintjelzővel. Itt kapcsolhatod be, hogy a hang a gépeden is szóljon.
-3. **Fordítás:** DeepL-kulcs (beillesztés, ellenőrzés, havi keret), tegező vagy magázó hangnem, próbafordítás. Választható helyi AI (Ollama) vagy Google is.
-4. **Játékprofil:** nevek és helyek, glosszárium (angol → magyar).
-5. **Megjelenítés:** lejátszó (mindig legfelül), átlátszó felirat-réteg, OBS-cím; betűméret, szín, háttérdoboz, szélesség, élő előnézettel.
-6. **Próba és indítás:** próba egy angol mintafelvétellel, aztán a lejátszó és a feliratozás indítása.
+## Kezelés
 
-A beállítás után az asztali ikon **rögtön a lejátszót nyitja meg, és a feliratozás magától indul**. A beállításokhoz a lejátszó fogaskerék-gombjával jutsz vissza.
+| | |
+|---|---|
+| **F9** | felvétel indítása / leállítása |
+| **F10** | szünet / folytatás (a felvétel és az időzítő is megáll) |
+| **F8** | felirat a képen be/ki |
+| **F11** vagy dupla kattintás | teljes képernyő, **Esc**: vissza |
+| **F12** | pillanatkép (PNG, a felvételek mappájának `Képek` almappájába) |
+| **F5** | jel újrafelismerése |
 
-## A lejátszó
+- **Élő felirat panel:** állapot, hangszint, fordító és DeepL-keret, a feliratozás indítása és leállítása.
+- **Utolsó mondatok:** a magyar felirat és alatta az angol eredeti, időponttal.
+- **Felvételek:** lejátszás, mappa megnyitása, **Export felirattal**, Lomtárba helyezés (megerősítés után, visszaállítható).
 
-- A kép a kártyáról közvetlenül jön (1080p60 vagy a választott felbontás), a felirat a kép alján jelenik meg.
-- A vezérlősáv egérmozdításra jelenik meg: indítás/leállítás, hang és hangerő, felirat be/ki, **mindig legfelül**, teljes képernyő, beállítások.
-- Billentyűk: **F** vagy dupla kattintás = teljes képernyő, **M** = hang, **S** = felirat, **T** = mindig legfelül, **Szóköz** = feliratozás indítása vagy leállítása.
+## Beállítások (fogaskerék)
+
+- **Fordítás:** DeepL (a legjobb minőség, kulcs kell), **Lokális AI** (Ollama a saját gépeden, semmi nem megy ki), Google (ingyenes, kulcs nélkül) vagy fordítás nélkül (angol felirat).
+  - A DeepL-kulcsot beillesztheted, és egy kattintással ellenőrizheted, ilyenkor a havi keretet is látod.
+  - Állítható a hangnem (tegező vagy magázó) és a játékprofil szótára (glosszárium).
+  - Tartalék fordító: ha a választott nem elérhető, a felirat akkor is magyar marad.
+- **Beszédfelismerés:** modell (distil-large-v3 az ajánlott, a large-v3-turbo pontosabb), GPU vagy processzor, játékprofil (GTA V, GTA VI, RDR2, általános), angol előnézet, a mondat végét jelző csend hossza, automatikus indulás.
+- **Felirat:** betűméret, szín, háttérdoboz, sorok száma, pozíció. OBS böngészőforrás-felirat is kérhető: `http://127.0.0.1:8765/`.
+- **Felvétel:** mappa (alapértelmezett: `Videók\rksubby`), minőség (normál, magas, maximális), kódolás (HEVC vagy H.264), SRT mentése.
+- **Kép és hang:** capture kártya kiválasztása (alapértelmezés szerint automatikus), a játék hangja szóljon-e a gépen.
+
+### DeepL-kulcs
+
+1. Regisztrálj a DeepL API Free csomagra: <https://www.deepl.com/pro-api> (havi 500 000 karakter ingyen).
+2. Másold ki a kulcsot: <https://www.deepl.com/your-account/keys>. A Free kulcs vége `:fx`.
+3. Fogaskerék › Fordítás › **Beillesztés**, majd **Ellenőrzés**.
+
+A kulcs a felhasználói mappádba kerül (`%USERPROFILE%\.rksubby\deepl_key.txt`), nem a programmappába.
+
+### Lokális AI (Ollama)
+
+Telepítsd az [Ollamát](https://ollama.com), majd parancssorban: `ollama pull translategemma:12b`. A fogaskerék › Fordítás oldalon válaszd a **Lokális AI**-t, és nyomd meg az **Ellenőrzés** gombot. A szöveg ilyenkor nem hagyja el a gépet.
 
 ## Hogyan működik
 
 ```
-Xbox -> capture kártya --kép--> lejátszóablak (Edge alkalmazásablak, mindig legfelül) <-- felirat
-                       --hang--> ffmpeg -> Silero VAD -> faster-whisper (GPU) -> DeepL -> felirat
-                                       \-> hangszóró
+Xbox ─HDMI─> capture kártya (DirectShow, egy csatorna: kép + hang)
+               │
+               ├─ kép (NV12) ──> előnézet: SDL2 + Direct3D 11 a Qt-ablakban ──> felirat a képen
+               ├─ kép + hang ──> NVENC (HEVC/H.264) + AAC ──> .mp4  (+ .srt a felirattal)
+               └─ hang ──┬──> hangszóró
+                         └──> Silero VAD ─> faster-whisper (GPU) ─> DeepL / Lokális AI / Google ─> magyar felirat
 ```
 
-A program egy helyi webszervert futtat (`http://127.0.0.1:8765/`). A beállító ablak, a lejátszó és az OBS-felirat is innen kapja az adatokat. A szerver csak a saját gépről érhető el, és más weboldalakról érkező kéréseket nem fogad el.
-
-Az **AVerMedia Live Gamer 4K (GC573)** hangja nem külön Windows-hangeszköz, hanem a kártya DirectShow-eszközén jön a képpel együtt. Ezt az ffmpeg olvassa ki, a telepítő ezt is felteszi. A kártyát a lejátszó és a feliratozó egyszerre használja. USB-s kártyáknál a hang gyakran külön Windows-hangbemenet, azt is választhatod.
+**Jelfelismerés:** a kártya bármilyen kért formátumra skáláz, ezért a program a ténylegesen beérkező képet méri. A felbontást abból ismeri fel, hogy melyik módban (4K, 1440p, 1080p) van még valódi finom részlet a képben. Az fps-t a képkockák beérkezési üteméből méri: a kártya nem gyárt képkockát, így 60 Hz-es jelből 120-ra kérve is csak 60 érkezik. A felirat a tartalom ütemét sosem használja, mert egy 60 fps-es játék 120 Hz-es jelben is lehet. Jelváltáskor (az Xbox a HDMI-t újraszinkronizálja) magától újramér.
 
 ## Mért teljesítmény
 
-RTX 3090, `distil-large-v3`, DeepL API Free, élő angol YouTube-videó az Xboxon (2026. október):
+RTX 3090, Ryzen 7 7800X3D, AVerMedia Live Gamer 4K (GC573), Xbox Series (2026. november):
 
 | | |
 |---|---|
-| Mondat vége → magyar felirat (medián, 143 mondat) | **~0,8 mp** |
-| Szünettel záruló mondatoknál | 0,55–0,7 mp |
-| Gyors, szünet nélküli beszédnél | 1,5–2,5 mp |
-| Beszédfelismerés mondatonként | ~110–230 ms |
-| DeepL-fordítás mondatonként | ~300 ms |
-| Indulás (meleg / hidegindítás) | ~4–9 mp / ~40 mp |
+| Előnézet 1080p120 jelnél | **119,9 fps** (a kártyáról 119,9 fps) |
+| Felvétel 1080p120 (ffprobe) | HEVC 1920×1080, `r_frame_rate=120/1`, 1763 képkocka / 14,71 s, 0 eldobott |
+| Processzorterhelés felvétel közben | ~2% (az egész gépre vetítve) |
+| Mondat vége → magyar felirat (V2-es mérés, DeepL) | ~0,8 mp (medián) |
+| Feliratozó indulása (modell a gyorsítótárban) | ~7 mp |
 
 ## Követelmények
 
-- Windows 10 vagy 11, Microsoft Edge (a Windows része)
-- NVIDIA videokártya, ajánlott (6+ GB VRAM). Nélküle CPU-n is elindul, de lassabb és pontatlanabb.
-- Capture kártya (pl. AVerMedia Live Gamer 4K), vagy OBS + [VB-Audio Virtual Cable](https://vb-audio.com/Cable/)
-- DeepL API Free kulcs (ingyenes, havi 500 000 karakter; a regisztrációnál a DeepL bankkártyás azonosítást kér)
-
-## DeepL-kulcs
-
-1. Regisztrálj a DeepL API Free csomagra: <https://www.deepl.com/pro-api>.
-2. Másold ki a kulcsot: <https://www.deepl.com/your-account/keys>. A Free kulcs vége `:fx`.
-3. Illeszd be a varázsló **Fordítás** lépésénél. A program ellenőrzi, és kiírja a havi keretet.
-
-A kulcs a felhasználói mappádba kerül (`%USERPROFILE%\.rksubby\deepl_key.txt`), **nem** a projektmappába, így nem adod tovább véletlenül. Futás közben is megadhatod: a feliratozó újraindítás nélkül átáll a DeepL-re.
-
-**Kulcs nélkül is magyar a felirat:** ha a DeepL nem elérhető (nincs kulcs, elfogyott a keret, nincs kapcsolat), tartalékként a helyi AI (Ollama, ha fut), végül a Google fordít. Ez a Fordítás lépésnél kikapcsolható („Tartalék fordító”). A vezérlőpulton látod, mennyi karaktert küldött el, és mennyi ment el előre fordításra. Ha fogy a keret, a Fordítás lépésnél kikapcsolhatod az előre fordítást.
-
-## OBS-sel (nem kötelező)
-
-Ha az OBS-ben nézed vagy rögzíted a játékot:
-
-1. **Hang:** OBS Beállítások → Hang → Speciális → **Hangfigyelő eszköz: CABLE Input (VB-Audio Virtual Cable)**. A capture-forrásnál a Hangfigyelés legyen „Figyelés és kimenet”, az Asztali hangnál „Figyelés kikapcsolása”. A varázslóban a hangforrás: `CABLE Output`.
-2. **Felirat:** új **Böngészőforrás**, a „Helyi fájl” kikapcsolva, a **Webcím `http://127.0.0.1:8765/`**, a méret 1920×1080, a forrás a lista tetején.
-
-A feliratokat SRT-fájlba is mentheted a felvételhez (Vezérlőpult → Feliratok mentése SRT-be). A fájlok a `feliratok` mappába kerülnek.
-
-## Parancssor (haladóknak)
-
-| Parancs | Mit csinál |
-|---|---|
-| `start.bat` | ugyanaz, mint az ikon, de látszik a konzol (hibakereséshez) |
-| `start.bat --setup` | a beállító ablakkal indul |
-| `start.bat --cli` | ablak nélkül, konzolban (a régi működés) |
-| `start.bat --cli --card "AVerMedia HD Capture GC573 1"` | konzolban, a kártya hangjával |
-| `start.bat --wav teszt_angol.wav` | próba a mintafelvétellel, Xbox nélkül |
-| `start.bat --list-devices` | hangbemenetek és capture kártyák listája |
-| `start.bat --test-translate` | a fordítók gyors tesztje |
-| `start.bat --deepl-key` | DeepL-kulcs beállítása a konzolon |
-
-A beállítások helye: `%USERPROFILE%\.rksubby\config.json`. A varázslóban és a **Haladó beállítások** oldalon állíthatók, egy új verzió letöltésekor nem vesznek el. Ikonnal indítva a program kimenete a `%USERPROFILE%\.rksubby\rksubby.log` fájlba kerül. Ha minden ablakát bezárod, másfél perc múlva magától kilép.
+- Windows 10 (1809+) vagy 11, 64 bites
+- Capture kártya illesztőprogrammal. Az AVerMedia Live Gamer 4K (GC573) kipróbált; más DirectShow-os kártya is működhet.
+- NVIDIA videokártya ajánlott (felvétel NVENC-cel, gyors felismerés, 6+ GB VRAM). Nélküle is elindul: a felvétel processzorral kódol, a felismerés lassabb.
+- Fordításhoz internet (DeepL vagy Google), vagy Ollama a lokális AI-hoz
 
 ## Hibaelhárítás
 
-**Nincs kép a lejátszóban.** Be van kapcsolva a konzol? Ha a kártya saját programja (AVerMedia RECentral) vagy az OBS kizárólagosan használja a kártyát, zárd be. A varázsló **Forrás** lépésénél nézd meg az előnézetet.
+**„A kártya nem nyitható meg”.** A kártyát egyszerre egy program használhatja: zárd be a RECentralt, az OBS-t és a régi rksubbyV2-t. A V3 pár másodpercenként magától újrapróbálja.
 
-**„NEM JÖN HANG”.** Capture kártyánál: szól a játék vagy videó? A varázsló **Forrás** lépésén a hangszintjelzőnek mozognia kell. OBS + VB-CABLE esetén a Windows-frissítés után az OBS megtarthat egy már nem létező eszközt: a Hangfigyelő eszköznél válassz ki egy másikat, Alkalmaz, aztán vissza a CABLE Inputot, és megint Alkalmaz.
+**„Nincs jel”.** Be van kapcsolva az Xbox? Jó a HDMI-kábel? Az Xbox 120 Hz-hez: Beállítások › Általános › TV és megjelenítés › Frissítési gyakoriság: 120 Hz.
 
-**„A GPU-s betöltés nem sikerült”.** Futtasd újra az `install.bat`-ot, vagy a varázsló **Telepítés** lépésénél nyomd meg az „NVIDIA-gyorsítás telepítése” gombot.
+**60 fps-t mutat 120 helyett.** Az Xbox csak akkor küld 120 Hz-et, ha a játék vagy a menü támogatja. Sok játék 60 Hz-re váltja a jelet, ilyenkor a felvétel is 60 fps lesz. Ha az Xbox visszavált, a program magától újramér (vagy nyomd meg az F5-öt).
 
-**DeepL-hibák.** 403: rossz a kulcs, add meg újra a Fordítás lépésnél. 456: elfogyott a havi keret, ilyenkor a hónap végéig angol felirat jelenik meg (vagy a helyi AI fordít, ha fut az Ollama).
+**Nem jön hang / „NEM JÖN HANG”.** Szól a játék? A panel hangszintjelzőjének mozognia kell. Egy másik program is használhatja a kártyát.
 
-**A 8765-ös port foglalt.** Fut még egy példány? Ha igen, az ikon az ő ablakát nyitja meg. Különben állíts be másik portot (Haladó beállítások), és írd át az OBS-ben is a címet.
+**Lassú vagy hiányzó felirat.** Fogaskerék › Beszédfelismerés: GPU legyen kiválasztva. Az első indításkor a modell letöltése pár percig tart.
 
-## Felépítés
+**DeepL-hibák.** 403: rossz a kulcs. 456: elfogyott a havi keret, ilyenkor a tartalék fordító (Lokális AI vagy Google) dolgozik.
+
+Napló: `%USERPROFILE%\.rksubby\rksubby.log` (Fogaskerék › Névjegy › Naplómappa).
+
+## Fejlesztőknek
+
+```bat
+uv venv --python 3.12 .venv-v3
+uv pip install --python .venv-v3\Scripts\python.exe -r requirements.txt
+.venv-v3\Scripts\python.exe rksubby.py
+```
+
+Tesztek: `.venv-v3\Scripts\python.exe -m unittest discover -s tests`
+Telepítő építése (Inno Setup 6 kell: `winget install JRSoftware.InnoSetup`): `.venv-v3\Scripts\python.exe tools\build_v3.py`, az eredmény: `dist\rksubby_V3_Setup.exe`.
 
 ```
 rksubby.py            indító
-subby/                a program
-  cli.py              indítás, parancssor
-  engine.py           a feliratozó motorja (modell, fordító, hangforrás indítása és leállítása)
-  subtitler.py        mondatdarabolás, felismerés, korai lezárás
-  capture.py          capture kártya hangja (ffmpeg), hangszóró, hangszintmérő
-  audio.py            Windows-hangbemenetek, WAV
-  translate.py        DeepL (glosszáriummal), Ollama, Google
-  display.py          feliratállapot, napló, SRT
-  server.py, api.py   helyi webszerver és a felület hívásai
-  windows.py          ablakok (Edge-alkalmazásablak, mindig legfelül)
-  overlay_qt.py       átlátszó felirat-réteg (külön folyamat)
-  web/                beállító varázsló, vezérlőpult, lejátszó, OBS-felirat
-profiles/             beépített játékprofilok
-tools/install.ps1     a telepítő
-tests/                tesztek: python -m unittest discover -s tests
+rkv3/                 V3: felület és rögzítő
+  app.py              főablak, vezérlés (kártya, felvétel, feliratozó, felvételek)
+  capture.py          kártyakeresés, jelfelismerés, élő kép + hang, NVENC-felvétel
+  video.py            GPU-s előnézet (SDL2/D3D11 a Qt-ablakban), felirat rajzolása
+  settings.py         beállítások (fogaskerék)
+  export.py           feliratos (beégetett) export
+  theme.py, icons.py  kinézet
+subby/                a feliratozó motor (V2-ből): VAD, faster-whisper, fordítók, feliratállapot, OBS-szerver
+profiles/             játékprofilok (nevek, glosszárium)
+installer/            Inno Setup szkript, OLVASS_EL.txt
+tools/                build_v3.py, make_assets.py
 ```
 
 ## Adatvédelem
 
-A beszédfelismerés helyben fut, csak a felismert angol szöveg megy a fordítóhoz (DeepL, tartalékként a Google). Helyi AI (Ollama) esetén semmi nem hagyja el a gépet. A `sub_log.tsv` helyben tárolja a felismert mondatokat; ha nem kell, kikapcsolhatod (Haladó beállítások), továbbadás előtt pedig hagyd ki.
+A beszédfelismerés helyben fut. Csak a felismert angol szöveg megy a fordítóhoz (DeepL vagy Google). Lokális AI esetén semmi nem hagyja el a gépet. A `sub_log.tsv` a felhasználói mappában helyben tárolja a felismert mondatokat; a beállításokban kikapcsolható.
 
 ## Felhasznált projektek
 
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (MIT), [Whisper](https://github.com/openai/whisper) és [distil-whisper](https://github.com/huggingface/distil-whisper) modellek, [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), [DeepL API](https://www.deepl.com/pro-api), [FFmpeg](https://ffmpeg.org) ([imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)), [PyQt5](https://riverbankcomputing.com/software/pyqt/) (GPL), [uv](https://github.com/astral-sh/uv), [OBS Studio](https://obsproject.com), [VB-Audio Virtual Cable](https://vb-audio.com/Cable/).
-A `teszt_angol.wav` J. F. Kennedy 1961-es beiktatási beszédéből származik (közkincs).
-
-Fejlesztés: RKnoise, Claude (Anthropic) segítségével.
-
-## Licenc
-
-MIT, lásd a `LICENSE` fájlt.
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) és [CTranslate2](https://github.com/OpenNMT/CTranslate2) (MIT), [Whisper](https://github.com/openai/whisper) / [distil-whisper](https://github.com/huggingface/distil-whisper) modellek, [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), [FFmpeg](https://ffmpeg.org) és [PyAV](https://github.com/PyAV-Org/PyAV) (LGPL), [SDL2](https://libsdl.org) (zlib), [Qt for Python / PySide6](https://www.qt.io/qt-for-python) (LGPL), NVIDIA CUDA-könyvtárak (cuBLAS, cuDNN – NVIDIA-licenc), [DeepL API](https://www.deepl.com/pro-api), [Ollama](https://ollama.com), [Inno Setup](https://jrsoftware.org/isinfo.php).
+A `teszt_angol.wav` J. F. Kennedy 1961-es beiktatási beszédéből származik (közkincs). Az Xbox a Microsoft védjegye; az rksubby független, nem hivatalos program.

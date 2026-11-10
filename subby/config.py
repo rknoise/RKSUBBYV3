@@ -18,7 +18,7 @@ CONFIG_PATH = os.path.join(HOME_DIR, "config.json")
 DEEPL_KEY_FILE = os.path.join(HOME_DIR, "deepl_key.txt")
 USER_PROFILE_DIR = os.path.join(HOME_DIR, "profiles")
 BUILTIN_PROFILE_DIR = os.path.join(BASE_DIR, "profiles")
-SRT_DIR = os.path.join(BASE_DIR, "feliratok")
+SRT_DIR = os.path.join(HOME_DIR, "feliratok")
 TEST_WAV = os.path.join(BASE_DIR, "teszt_angol.wav")
 SAMPLE_RATE = 16000              # a Whisper ennyit vár
 
@@ -102,6 +102,17 @@ DEFAULTS = {
     "overlay_screen": 0,             # a beépített Qt-ablak (--overlay) melyik monitoron legyen
     "log_enabled": True,             # sub_log.tsv: EN / HU / késés mondatonként
 
+    # --- Felvétel (V3) ---
+    "rec_dir": "",                   # üres = Videók\rksubby
+    "rec_quality": "high",           # "normal" | "high" | "max"  (NVENC cq 25 / 21 / 18)
+    "rec_codec": "hevc",             # "hevc" (kisebb fájl) | "h264" (mindenhol lejátszható)
+    "rec_srt": True,                 # a felvétel mellé .srt felirat (VLC, MPC magától betölti)
+
+    # --- V3 felület ---
+    "subs_on_video": True,           # a felirat a képen
+    "obs_server": False,             # OBS böngészőforrás-felirat a helyi webszerveren
+    "side_panel": True,              # jobb oldali panel látszik
+
     # --- Grafikus felület ---
     "setup_done": False,             # végigment-e már a beállítóvarázslón
     "open_window": True,             # induláskor megnyit-e ablakot (beállítás vagy lejátszó)
@@ -113,7 +124,8 @@ DEFAULTS = {
 LIVE_KEYS = {
     "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s",
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
-    "overlay_screen", "http_port", "video_device", "video_res", "video_fps", "monitor_audio",
+    "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
+    "subs_on_video", "obs_server", "side_panel", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
     "monitor_volume", "player_topmost", "screen_overlay", "launch_player", "autostart", "ffmpeg_path",
     # a fordító futás közben cserélhető (Engine.reload_translator)
     "translator", "translate_fallback", "ollama_url", "ollama_model", "deepl_glossary",
@@ -127,6 +139,8 @@ _CHOICES = {
     "translator": TRANSLATORS + ("auto",),
     "asr_device": ("auto", "cuda", "cpu"),
     "deepl_formality": ("prefer_less", "prefer_more", "default", ""),
+    "rec_quality": ("normal", "high", "max"),
+    "rec_codec": ("hevc", "h264"),
 }
 _COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 

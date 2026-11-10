@@ -249,8 +249,9 @@ class ServerTests(unittest.TestCase):
         code, body = self.req("/")
         self.assertEqual(code, 200)
         self.assertIn(b"subs.js", body)
-        for path in ("/app", "/player", "/static/app.js", "/static/player.js", "/static/subs.js"):
-            self.assertEqual(self.req(path)[0], 200, path)
+        self.assertEqual(self.req("/static/subs.js")[0], 200)
+        for path in ("/app", "/player"):          # V3: a régi webes felület megszűnt
+            self.assertEqual(self.req(path)[0], 404, path)
         self.assertEqual(self.req("/static/../config.py")[0], 404)
         code, body = self.req("/state")
         self.assertIn("lines", json.loads(body))
@@ -287,3 +288,50 @@ class ServerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V3Tests(unittest.TestCase):
+    """rksubby V3: SRT-feldolgozás, felirat színátalakítás, jelformátum-segédek (kártya nélkül)."""
+
+    def test_parse_srt_and_yuv(self):
+        import numpy as np
+
+        from rkv3 import export
+
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "a.srt")
+            with open(p, "w", encoding="utf-8-sig") as f:
+                f.write("1\n00:00:01,500 --> 00:00:03,000\nSzia!\n\n2\n00:00:04,000 --> 00:00:05,250\nKét\nsor\n\n")
+            cues = export.parse_srt(p)
+        self.assertEqual(cues, [(1.5, 3.0, "Szia!"), (4.0, 5.25, "Két\nsor")])
+        rgba = np.zeros((4, 6, 4), np.uint8)
+        rgba[..., :3] = 255
+        rgba[..., 3] = 255
+        y, u, v, a, a2 = export.rgba_to_yuva(rgba)
+        self.assertEqual(y.shape, (4, 6))
+        self.assertEqual(u.shape, (2, 3))
+        self.assertAlmostEqual(float(y[0, 0]), 235.0, delta=1.0)    # fehér = 235 (limited range)
+        self.assertAlmostEqual(float(u[0, 0]), 128.0, delta=1.0)
+
+    def test_snap_rate_and_detail(self):
+        import numpy as np
+
+        from rkv3 import capture
+
+        self.assertEqual(capture.snap_rate(59.94), 60)
+        self.assertEqual(capture.snap_rate(119.88), 120)
+        rng = np.random.default_rng(1)
+        sharp = rng.integers(0, 255, (540, 960)).astype(np.uint8)
+        up = np.repeat(np.repeat(sharp[:270, :480], 2, 0), 2, 1)          # 2x felskálázott: nincs finom részlet
+        self.assertGreater(capture.detail_ratio(sharp), capture.DETAIL_THRESHOLD)
+        self.assertLess(capture.detail_ratio(_smooth(up)), capture.DETAIL_THRESHOLD)   # simított felskálázás
+
+
+def _smooth(img):
+    import numpy as np
+
+    k = np.array([1, 4, 6, 4, 1], np.float32) / 16
+    x = img.astype(np.float32)
+    for axis in (0, 1):
+        x = np.apply_along_axis(lambda r: np.convolve(r, k, mode="same"), axis, x)
+    return x
