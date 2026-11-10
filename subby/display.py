@@ -9,11 +9,11 @@ import queue
 import threading
 import time
 
-from .config import BASE_DIR, SRT_DIR
+from .config import HOME_DIR, SRT_DIR
 
-SUB_TXT_PATH = os.path.join(BASE_DIR, "sub.txt")
-SUB_JSON_PATH = os.path.join(BASE_DIR, "sub.json")
-LOG_PATH = os.path.join(BASE_DIR, "sub_log.tsv")
+SUB_TXT_PATH = os.path.join(HOME_DIR, "sub.txt")
+SUB_JSON_PATH = os.path.join(HOME_DIR, "sub.json")
+LOG_PATH = os.path.join(HOME_DIR, "sub_log.tsv")
 
 
 def display_seconds(text, cfg):

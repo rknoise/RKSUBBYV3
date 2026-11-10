@@ -1,0 +1,24 @@
+rksubby V3 – Xbox kép 1080p120-ig, felvétel és élő magyar felirat
+=================================================================
+
+TELEPÍTÉS
+  Futtasd: rksubby_V3_Setup.exe  (rendszergazdai jog nem kell)
+  Benne van minden: a program, Python, FFmpeg/PyAV, SDL2, Qt, NVENC kódoló, faster-whisper,
+  és az NVIDIA CUDA-könyvtárak a GPU-s beszédfelismeréshez.
+  A beszédfelismerő modellt (distil-large-v3, kb. 1,5 GB) az első feliratozáskor egyszer letölti.
+  Eltávolítás: Gépház › Alkalmazások › rksubby V3.
+
+AMI KELL HOZZÁ (nem csomagolható)
+  • Capture kártya illesztőprogrammal (pl. AVerMedia Live Gamer 4K / GC573 – a gyártó oldaláról).
+  • NVIDIA videokártya ajánlott (felvétel NVENC-cel, gyors beszédfelismerés). Nélküle is elindul.
+  • A RECentral, az OBS és a régi rksubbyV2 legyen bezárva: a kártyát egyszerre egy program használhatja.
+
+HASZNÁLAT
+  Indításkor a program megkeresi a kártyát, felismeri a jelet (1080p / 1440p / 4K, 60 / 120 Hz),
+  és elindítja a feliratozást. Beállítások: a jobb felső fogaskerék (fordító, DeepL-kulcs, felirat, felvétel).
+  F9  felvétel indítása / leállítása      F10  szünet / folytatás
+  F8  felirat a képen be/ki               F11  teljes képernyő (vagy dupla kattintás), Esc: vissza
+  F12 pillanatkép                         F5   jel újrafelismerése
+  Felvételek: Videók\rksubby  (.mp4 HEVC/H.264 + AAC, mellette .srt felirat)
+  „Export felirattal”: a felvétel új változata, a felirat beégetve a képbe.
+  Beállítások és napló: %USERPROFILE%\.rksubby  (rksubby.log)

@@ -3,11 +3,9 @@
   /            az OBS böngészőforrás felirata (ugyanaz a cím, mint eddig)
   /events      a felirat élőben (Server-Sent Events: nincs 100 ms-os lekérdezési késés)
   /state       a felirat állapota JSON-ban (régi lekérdezős oldalaknak)
-  /app         a beállító varázsló és a vezérlőpult
-  /player      a lejátszó: a capture kártya képe, rajta a felirat
-  /api/...     a felület hívásai
-Védelem: csak a saját címére érkező kérést szolgálja ki (Host-ellenőrzés a DNS-rebinding ellen), az
-/api/ hívásokat pedig csak a saját oldalairól fogadja el (Origin + JSON tartalomtípus)."""
+  /api/ping    életjel
+V3-ban csak az OBS böngészőforrás felirata (a beállításokban kapcsolható be).
+Védelem: csak a saját címére érkező kérést szolgálja ki (Host-ellenőrzés a DNS-rebinding ellen)."""
 
 import http.server
 import json
@@ -94,10 +92,6 @@ class SubtitleServer:
                     self._json(200, sink.state())
                 elif path == "/events":
                     self._sse()
-                elif path in ("/app", "/app/"):
-                    self._file("app.html")
-                elif path in ("/player", "/player/"):
-                    self._file("player.html")
                 elif path.startswith("/static/"):
                     name = os.path.basename(path[len("/static/"):])   # mappát nem lehet bejárni
                     if os.path.splitext(name)[1].lower() in _CTYPES:

@@ -1,4 +1,4 @@
 # -*- coding: utf-8 -*-
-"""rksubbyV2 - élő magyar felirat angol beszédhez (faster-whisper + DeepL + OBS)."""
+"""rksubby - élő magyar felirat angol beszédhez (faster-whisper + DeepL / lokális AI / Google)."""
 
-__version__ = "2.1.0"
+__version__ = "3.0.0"

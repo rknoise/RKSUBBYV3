@@ -8,3 +8,7 @@ __pycache__/
 .venv/
 feliratok/
 rksubby.log
+build/
+dist/
+.venv-v3/
+build_v3*.log
