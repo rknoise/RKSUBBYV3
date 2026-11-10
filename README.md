@@ -18,6 +18,10 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya teljes jelét kezeli*
   - **Automatikus mód:** a kártya, ha van jele; ha az Xbox ki van kapcsolva, a Windows asztal. Ha közben bekapcsolod az Xboxot, magától visszavált.
   - A felirat asztali módban is a program lejátszófelületén jelenik meg, így az ablakkal együtt mozog (pl. a második monitorra). Egy monitornál bekapcsolható a felirat-sáv a képernyő alján, a játék fölött (Beállítások › Kép és hang). Az rksubby saját ablaka nem kerül a felvételre.
   - Mért érték: 120 fps rögzítés és előnézet a 240 Hz-es monitorról, a felvétel 1920×1080 @ 120.
+- **Cutscene-figyelő (új a 3.1-ben).** Nyomd be a **Cutscene** gombot, és a program játék közben magától felveszi az átvezető jeleneteket.
+  - Egyszer megjelölöd a képen a mindig látszó HUD-elemeket (minitérkép, életerő, óra). Amikor ezek eltűnnek, indul a felvétel; amikor visszajönnek, leáll. Minden jelenet külön fájl, mellette a felirattal.
+  - **Előfelvétel:** a program folyamatosan a memóriában tartja az utolsó másodperceket, így a jelenet eleje sem marad le.
+  - A rövid téves találatok (menü, térkép) maguktól a Lomtárba kerülnek. Részletek lent, a „Cutscene-figyelő” fejezetben.
 - **Új, egységes felület.** Sötétkék téma rózsaszín–lila–kék kiemeléssel. Középen a kép, alatta a felvétel vezérlői, oldalt az élő felirat, az utolsó mondatok és a felvételek listája.
 - **Minden beállítás egy fogaskerék mögött.** Fordító (DeepL, Lokális AI, Google, nincs), DeepL-kulcs beillesztése és ellenőrzése, beszédfelismerő modell, felirat kinézete, felvételi mappa és minőség, capture kártya, hang.
 - **Minden az egyben telepítő.** Python, Qt, FFmpeg, SDL2, faster-whisper, az NVIDIA CUDA-könyvtárak és a beszédfelismerő modell is benne van, a telepítés után semmit nem kell letölteni. Rendszergazdai jog nem kell, és a Gépház › Alkalmazások alól eltávolítható.
@@ -44,6 +48,7 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
 
 | | |
 |---|---|
+| **F7** | cutscene-figyelő be/ki |
 | **F9** | felvétel indítása / leállítása |
 | **F10** | szünet / folytatás (a felvétel és az időzítő is megáll) |
 | **F8** | felirat a képen be/ki |
@@ -57,6 +62,19 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
 - **Utolsó mondatok:** a magyar felirat és alatta az angol eredeti, időponttal.
 - **Felvételek:** lejátszás, mappa megnyitása, **Export felirattal**, Lomtárba helyezés (megerősítés után, visszaállítható).
 
+## Cutscene-figyelő
+
+1. Játék közben, amikor a HUD látszik, nyomd meg a vezérlősáv **Cutscene** gombját (F7). Első alkalommal megnyílik a kimerevített kép: **keretezd be egérrel** a mindig látszó elemeket (minitérkép, életerő, lőszer, óra), legfeljebb négyet. Jobb kattintás töröl.
+2. Mentés után a program kb. **8 másodpercig tanul**: játssz tovább és mozogj. Ezalatt megtanulja, mi állandó (a térkép kerete, az ikonok) és mi változik (a térkép tartalma, az életerő hossza).
+3. Innentől figyel. Ha minden megjelölt elem eltűnik, **indul a felvétel** (az előfelvétellel 5 másodperccel korábbról); ha a HUD visszajön, **leáll**, és a fájl vége a HUD visszatérésénél van elvágva.
+
+- A jelenetek a felvételek mappájába kerülnek `…_jelenet_…mp4` néven, mellettük az `.srt` felirat.
+- A HUD-mintát a program **játékprofilonként és felbontásonként** jegyzi meg, így legközelebb elég a gombot benyomni. Újrajelölés: a Cutscene gomb melletti keret ikon.
+- Kézi felvétel (F9) közben a figyelő szünetel.
+- Beállítások › Felvétel: az előfelvétel hossza és a legrövidebb megtartott jelenet (ennél rövidebb a Lomtárba kerül).
+
+**Mire figyelj:** a HUD máskor is eltűnik (szünetmenü, térkép, töltőképernyő, halál, fotómód), ezeket a program az állókép és a fekete kép kiszűrésével, illetve a legrövidebb hosszal próbálja kihagyni, de nem tévedhetetlen. Ha egy játékban a HUD az átvezetők alatt is kint marad, ott nem fog indulni. Olyan elemet jelölj, ami játék közben végig látszik, és nem halványul el magától.
+
 ## Beállítások (fogaskerék)
 
 - **Fordítás:** DeepL (a legjobb minőség, kulcs kell), **Lokális AI** (Ollama a saját gépeden, semmi nem megy ki), Google (ingyenes, kulcs nélkül) vagy fordítás nélkül (angol felirat).
@@ -65,7 +83,7 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
   - Tartalék fordító: ha a választott nem elérhető, a felirat akkor is magyar marad.
 - **Beszédfelismerés:** modell (distil-large-v3 az ajánlott, a large-v3-turbo pontosabb), GPU vagy processzor, játékprofil (GTA V, GTA VI, RDR2, általános), angol előnézet, a mondat végét jelző csend hossza, automatikus indulás.
 - **Felirat:** betűméret, szín, háttérdoboz, sorok száma, pozíció. OBS böngészőforrás-felirat is kérhető: `http://127.0.0.1:8765/`.
-- **Felvétel:** mappa (alapértelmezett: `Videók\rksubby`), minőség (normál, magas, maximális), kódolás (HEVC vagy H.264), SRT mentése.
+- **Felvétel:** mappa (alapértelmezett: `Videók\rksubby`), minőség (normál, magas, maximális), kódolás (HEVC vagy H.264), SRT mentése, a cutscene-figyelő előfelvétele és legrövidebb jelenete.
 - **Kép és hang:** forrás (automatikus, capture kártya, Windows asztal), a kártya és a monitor kiválasztása, asztali fps (60 vagy 120), a képernyőn lévő felirat a felvételre is kerüljön-e, a játék hangja szóljon-e a gépen.
 
 ### DeepL-kulcs
@@ -153,6 +171,8 @@ rkv3/                 V3: felület és rögzítő
   app.py              főablak, vezérlés (kártya, felvétel, feliratozó, felvételek)
   capture.py          kártyakeresés, jelfelismerés, élő kép + hang, NVENC-felvétel
   desktop.py          Windows asztal mint forrás (DXGI + WASAPI loopback)
+  cutscene.py         cutscene-figyelő: HUD-felismerés, előpufferes kódoló, vezérlés
+  hudmark.py          a HUD megjelölése a kimerevített képen
   video.py            GPU-s előnézet (SDL2/D3D11 a Qt-ablakban), felirat rajzolása
   settings.py         beállítások (fogaskerék)
   export.py           feliratos (beégetett) export

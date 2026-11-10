@@ -1,6 +1,6 @@
 ﻿; rksubby V3 telepítő (Inno Setup 6). Építés: tools\build_v3.py
 #ifndef AppVersion
-  #define AppVersion "3.0.1"
+  #define AppVersion "3.1.0"
 #endif
 #ifndef SrcDir
   #define SrcDir "..\build\v3\app\rksubby"
