@@ -64,6 +64,9 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
 
 ## Cutscene-figyelő
 
+<p align="center"><img src="docs/rksubby_v3_hud_megjeloles.jpg" alt="rksubby V3: a HUD megjelölése a kimerevített képen a cutscene-figyelőhöz" width="100%"></p>
+<p align="center"><sub>A HUD megjelölése: a kimerevített képen egérrel bekeretezed a mindig látszó elemeket.</sub></p>
+
 1. Játék közben, amikor a HUD látszik, nyomd meg a vezérlősáv **Cutscene** gombját (F7). Első alkalommal megnyílik a kimerevített kép: **keretezd be egérrel** a mindig látszó elemeket (minitérkép, életerő, lőszer, óra), legfeljebb négyet. Jobb kattintás töröl.
 2. Mentés után a program kb. **8 másodpercig tanul**: játssz tovább és mozogj. Ezalatt megtanulja, mi állandó (a térkép kerete, az ikonok) és mi változik (a térkép tartalma, az életerő hossza).
 3. Innentől figyel. Ha minden megjelölt elem eltűnik, **indul a felvétel** (az előfelvétellel 5 másodperccel korábbról); ha a HUD visszajön, **leáll**, és a fájl vége a HUD visszatérésénél van elvágva.
