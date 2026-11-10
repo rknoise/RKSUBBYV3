@@ -33,11 +33,12 @@ logging.getLogger().setLevel(logging.INFO)
 log = logging.getLogger("rksubby")
 
 import sdl2  # noqa: E402
-from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal  # noqa: E402
-from PySide6.QtGui import QIcon, QImage, QKeySequence, QPixmap, QShortcut  # noqa: E402
+from PySide6.QtCore import QObject, QSize, Qt, QTimer, QUrl, Signal  # noqa: E402
+from PySide6.QtGui import (QAction, QActionGroup, QDesktopServices, QGuiApplication, QIcon, QImage,  # noqa: E402
+                           QKeySequence, QPixmap, QShortcut)
 from PySide6.QtNetwork import QLocalServer, QLocalSocket  # noqa: E402
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,  # noqa: E402
-                               QMainWindow, QMessageBox, QProgressBar, QProgressDialog, QPushButton, QSlider,
+                               QMainWindow, QMenu, QMessageBox, QProgressBar, QProgressDialog, QPushButton, QSlider,
                                QToolButton, QVBoxLayout, QWidget)
 
 from subby.display import SubtitleSink, display_seconds  # noqa: E402
@@ -45,9 +46,10 @@ from subby.engine import Engine  # noqa: E402
 
 from . import __version__  # noqa: E402
 from . import capture  # noqa: E402
+from . import desktop  # noqa: E402
 from .icons import icon  # noqa: E402
 from .theme import QSS  # noqa: E402
-from .video import VideoWidget, render_subtitle  # noqa: E402
+from .video import ScreenOverlay, VideoWidget, render_subtitle  # noqa: E402
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 INSTANCE_KEY = "rksubby-v3-instance"
@@ -136,7 +138,7 @@ class Tap:
 
     def start(self):
         self.win.taps.append(self.on_audio)
-        return "capture kártya hangja (48 kHz, közvetlenül a rögzítőből)"
+        return "a forrás hangja (capture kártya vagy a Windows rendszerhangja), közvetlenül a rögzítőből"
 
     def stop(self):
         try:
@@ -150,6 +152,9 @@ class Bus(QObject):
     export_progress = Signal(float)
     export_done = Signal(str)
     notify = Signal(str)
+    source_changed = Signal()
+    update_available = Signal(str, str)
+    devices_ready = Signal(list)
 
 
 def card(title):
@@ -204,6 +209,11 @@ class MainWindow(QMainWindow):
         self.dev = None
         self.caps = {}
         self.state = "search"
+        self.src = ""                      # "card" | "desktop"
+        self.cards: list[str] = []        # kép+hang DirectShow-eszközök (a forrásmenühöz)
+        self.outputs: list[dict] = []     # rögzíthető monitorok
+        self._probe_t = time.time()
+        self._probing = False
         self._busy = threading.Lock()
         self._stalled = False
         self._slow = 0
@@ -221,6 +231,11 @@ class MainWindow(QMainWindow):
         self.logo_img = QImage(os.path.join(ASSETS, "logo512.png"))
         capture.set_nosignal_ref(os.path.join(ASSETS, "nosignal_sig.npy"))
         sdl2.SDL_InitSubSystem(sdl2.SDL_INIT_AUDIO)
+        self.overlay = ScreenOverlay()
+        self.bus.source_changed.connect(self._apply_source)
+        self.bus.update_available.connect(self._show_update)
+        self.bus.devices_ready.connect(lambda c: setattr(self, "cards", c))
+        self._refresh_outputs()
         self._build_ui()
         self._shortcuts()
         self._refresh_recordings()
@@ -232,6 +247,9 @@ class MainWindow(QMainWindow):
         self.t_subs = QTimer(self, timeout=self._subs_tick)
         self.t_subs.start(40)
         QTimer.singleShot(400, self.restart_pipeline)
+        threading.Thread(target=self._scan_cards, daemon=True).start()
+        if self.cfg.update_check:
+            QTimer.singleShot(5000, lambda: threading.Thread(target=self._check_update, daemon=True).start())
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -256,6 +274,16 @@ class MainWindow(QMainWindow):
         logo.setPixmap(pm.scaledToHeight(34, Qt.SmoothTransformation))
         hl.addWidget(logo)
         hl.addSpacing(14)
+        self.src_btn = QToolButton()
+        self.src_btn.setObjectName("SrcBtn")
+        self.src_btn.setPopupMode(QToolButton.InstantPopup)
+        self.src_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.src_btn.setCursor(Qt.PointingHandCursor)
+        self.src_btn.setToolTip("Forrás: capture kártya vagy Windows asztal (PC-s játék, program)")
+        self.src_menu = QMenu(self)
+        self.src_menu.aboutToShow.connect(self._build_source_menu)
+        self.src_btn.setMenu(self.src_menu)
+        hl.addWidget(self.src_btn)
         self.chip_sig = QLabel("Kártya keresése…")
         self.chip_sub = QLabel("Felirat: ki")
         self.chip_rec = QLabel("● REC")
@@ -263,6 +291,10 @@ class MainWindow(QMainWindow):
             c.setObjectName("Chip")
             hl.addWidget(c)
         self.chip_rec.hide()
+        self.btn_update = QPushButton()
+        self.btn_update.setObjectName("UpdateBtn")
+        self.btn_update.hide()
+        hl.addWidget(self.btn_update)
         hl.addStretch(1)
         self.btn_panel = tool("sidebar", "Oldalsó panel (be/ki)", checkable=True)
         self.btn_panel.setChecked(self.cfg.side_panel)
@@ -457,29 +489,176 @@ class MainWindow(QMainWindow):
             if self.cap:
                 self.cap.stop()
                 self.cap = None
-            self.state = "search"
-            if not self.dev:
-                self.dev = capture.find_device(self.cfg.dshow_device)
-                if not self.dev:
-                    self.state = "nodev"
+            src = self.cfg.source
+            if src in ("auto", "card"):
+                if self._start_card(fallback=src == "auto") or src == "card":
                     return
-                self.caps = capture.list_caps(self.dev)
-                log.info("device %s caps %s", self.dev, self.caps)
-            self.state = "detect"
-            try:
-                fmt = capture.detect_format(self.dev, self.caps)
-            except Exception as e:
-                log.warning("detect failed: %s", e)
-                self.state = "busy"
-                return
-            self.fmt = fmt
-            self._stalled = False
-            cap = capture.Capture(self.dev, fmt, self._on_video, self._on_audio, self.rec)
-            cap.start()
-            self.cap = cap
-            self.state = "nosignal" if fmt.get("nosignal") else "run"
+            self._start_desktop()
+        except Exception:
+            log.exception("pipeline")
         finally:
             self._busy.release()
+            self.bus.source_changed.emit()
+
+    def _start_card(self, fallback=False) -> bool:
+        """Capture kártya. fallback=True (automatikus mód): jel nélkül nem indul, az asztal jön helyette."""
+        self.state = "search"
+        if not self.dev:
+            self.dev = capture.find_device(self.cfg.dshow_device)
+            if not self.dev:
+                self.state = "nodev"
+                return False
+            self.caps = capture.list_caps(self.dev)
+            log.info("device %s caps %s", self.dev, self.caps)
+        self.state = "detect"
+        try:
+            fmt = capture.detect_format(self.dev, self.caps)
+        except Exception as e:
+            log.warning("detect failed: %s", e)
+            self.state = "busy"
+            return False
+        if fmt.get("nosignal") and fallback:
+            log.info("card has no signal -> desktop (auto)")
+            self.state = "nosignal"
+            return False
+        fmt.update(src="card", pix="nv12", name=self.dev)
+        self.fmt = fmt
+        self._stalled = False
+        cap = capture.Capture(self.dev, fmt, self._on_video, self._on_audio, self.rec)
+        cap.start()
+        self.cap, self.src = cap, "card"
+        self.state = "nosignal" if fmt.get("nosignal") else "run"
+        return True
+
+    def _start_desktop(self):
+        outs = self.outputs or desktop.list_outputs()
+        if not outs:
+            self.state = "nodesk"
+            return
+        o = next((x for x in outs if x["idx"] == self.cfg.desktop_output), None)
+        if o is None:
+            o = next((x for x in outs if x.get("primary")), outs[0])
+        fps = capture.snap_rate(min(int(self.cfg.desktop_fps), max(30, int(o.get("hz", 60)))))
+        fmt = {"w": o["w"], "h": o["h"], "fps": fps, "src": "desktop", "pix": "bgra", "name": o["name"],
+               "output": o["idx"], "nosignal": False}
+        cap = desktop.DesktopCapture(o, fmt, self._on_video, self._on_audio, self.rec)
+        cap.start()
+        self.fmt, self.cap, self.src = fmt, cap, "desktop"
+        self._stalled = False
+        self.state = "run"
+        log.info("source: desktop %s %dx%d@%d (audio: %s)", o["name"], o["w"], o["h"], fps,
+                 cap.audio_desc or cap.audio_error)
+
+    def _refresh_outputs(self):
+        try:
+            self.outputs = desktop.list_outputs(QGuiApplication.screens())
+        except Exception as e:
+            log.warning("desktop outputs: %s", e)
+            self.outputs = []
+
+    def _scan_cards(self):
+        try:
+            cards = [d["name"] for d in capture.list_devices() if {"video", "audio"} <= d["types"]]
+        except Exception:
+            cards = []
+        self.bus.devices_ready.emit(cards)
+
+    def _apply_source(self):
+        """GUI-szál: asztali módban a saját ablak kimarad a felvételből, a felirat a képernyő aljára kerül."""
+        dsk = self.src == "desktop"
+        desktop.exclude_from_capture(int(self.winId()), dsk)
+        self._sub_key = None
+        if dsk and self.fmt:
+            o = next((x for x in self.outputs if x["idx"] == self.fmt.get("output")), None)
+            scr = (o or {}).get("qt") or QGuiApplication.primaryScreen()
+            self.overlay.place(scr, int(self.cfg.style.get("bottom", 40) * self.fmt["h"] / 1080))
+            self.overlay.show()
+            desktop.exclude_from_capture(int(self.overlay.winId()), not self.cfg.desktop_subs_in_rec)
+        else:
+            self.overlay.hide()
+
+    def _build_source_menu(self):
+        m = self.src_menu
+        m.clear()
+        grp = QActionGroup(m)
+        cur = self.cfg.source
+
+        def add(text, ic, checked, changes):
+            a = QAction(icon(ic, "#c9b8ff", 16), text, m)
+            a.setCheckable(True)
+            a.setChecked(checked)
+            a.triggered.connect(lambda _=False, c=changes: self.set_source(c))
+            grp.addAction(a)
+            m.addAction(a)
+
+        add("Automatikus – kártya, ha van jele; különben a Windows asztal", "refresh", cur == "auto",
+            {"source": "auto"})
+        m.addSection("Capture kártya")
+        cards = self.cards or ([self.dev] if self.dev else [])
+        if not cards:
+            na = m.addAction("(nem találok capture kártyát)")
+            na.setEnabled(False)
+        for c in cards:
+            add(c, "video", cur == "card" and self.cfg.dshow_device in ("", c),
+                {"source": "card", "dshow_device": c})
+        m.addSection("Windows asztal (PC-s játék, program, videó)")
+        self._refresh_outputs()
+        for o in self.outputs:
+            add(f"{o['name']}  –  {o['w']}×{o['h']}, {o['hz']} Hz{'  (fő)' if o.get('primary') else ''}", "desktop",
+                cur == "desktop" and self.cfg.desktop_output == o["idx"],
+                {"source": "desktop", "desktop_output": o["idx"]})
+
+    def set_source(self, changes):
+        if self.rec.active:
+            QMessageBox.information(self, "Forrás", "Felvétel közben nem lehet forrást váltani. Előbb állítsd le.")
+            return
+        self.cfg.update(changes)
+        self._save_cfg()
+        self.dev = None
+        self.restart_pipeline()
+
+    def _probe_card(self):
+        """Automatikus mód, asztalról: megjött-e az Xbox jele a kártyán? (pár mp-re megnyitja a kártyát)"""
+        try:
+            dev = capture.find_device(self.cfg.dshow_device)
+            if not dev:
+                return
+            y, nos = capture.grab_y(dev, 1920, 1080, 60)
+            if not nos and y is not None and capture.detail_ratio(y) is not None:
+                log.info("auto: capture card has signal -> switching to card")
+                self.dev = None
+                if not self.rec.active and self.cfg.source == "auto" and self.src == "desktop":
+                    self.restart_pipeline()
+        except Exception as e:
+            log.info("card probe: %s", e)
+        finally:
+            self._probing = False
+
+    def _check_update(self):
+        try:
+            import requests
+
+            r = requests.get("https://api.github.com/repos/rknoise/rksubbyV2/releases/latest", timeout=6,
+                             headers={"Accept": "application/vnd.github+json"})
+            if r.status_code != 200:
+                return
+            d = r.json()
+            tag = (d.get("tag_name") or "").lstrip("vV")
+
+            def ver(x):
+                parts = [p for p in x.split("-")[0].split(".") if p.isdigit()]
+                return tuple(int(p) for p in (parts + ["0", "0", "0"])[:3])
+            if tag and ver(tag) > ver(__version__):
+                self.bus.update_available.emit(tag, d.get("html_url") or "")
+        except Exception as e:
+            log.info("update check: %s", e)
+
+    def _show_update(self, tag, url):
+        self.btn_update.setText(f"  Új verzió: v{tag}")
+        self.btn_update.setIcon(icon("export", "#ffffff", 16))
+        self.btn_update.setToolTip("Megnyitja a letöltési oldalt (GitHub)")
+        self.btn_update.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+        self.btn_update.show()
 
     def _on_video(self, frame):
         self.last_frame = frame
@@ -495,6 +674,8 @@ class MainWindow(QMainWindow):
                 t = time.monotonic()
                 for fn in list(self.taps):
                     fn(x, frame.sample_rate, t)
+            if self.src == "desktop":       # a PC hangja már szól – visszajátszani visszhang lenne
+                return
             fmt = (frame.sample_rate, ch)
             if fmt != self._audio_fmt:
                 if self._audio_dev:
@@ -535,6 +716,12 @@ class MainWindow(QMainWindow):
             self.cap = None
             self.state = "busy"
             self.restart_pipeline()
+        elif self.src == "desktop":
+            if (self.cfg.source == "auto" and not self.rec.active and not self._probing
+                    and time.time() - self._probe_t > 20):
+                self._probe_t = time.time()
+                self._probing = True
+                threading.Thread(target=self._probe_card, name="card-probe", daemon=True).start()
         else:
             stalled = time.perf_counter() - cap.last_frame_wall > 1.5
             if self._stalled and not stalled and not self.rec.active:
@@ -582,6 +769,7 @@ class MainWindow(QMainWindow):
             "busy": ("A kártya nem nyitható meg",
                      "Valószínűleg más program használja (RECentral, OBS). Zárd be – a program magától újrapróbálja."),
             "nosignal": ("Nincs jel", "Kapcsold be az Xboxot, vagy ellenőrizd a HDMI-kábelt."),
+            "nodesk": ("Nincs rögzíthető monitor", "A Windows asztal rögzítése ezen a gépen nem érhető el."),
         }
         m = msgs.get(self.state)
         if m and (not self.video.has_video() or self.state in ("nodev", "busy", "search", "detect")):
@@ -590,6 +778,13 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ periodic UI
     def _ui_tick(self):
         f = self.fmt
+        auto = " (auto)" if self.cfg.source == "auto" else ""
+        if self.src == "desktop" and f:
+            self.src_btn.setIcon(icon("desktop", "#c9b8ff", 16))
+            self.src_btn.setText(f"  Asztal: {f.get('name', '')}{auto}  ")
+        else:
+            self.src_btn.setIcon(icon("video", "#c9b8ff", 16))
+            self.src_btn.setText(f"  Kártya{auto}  ")
         # chips
         if self.state == "run" and f:
             self._chip(self.chip_sig, f"● {f['h']}p · {f['fps']} fps", "ok")
@@ -701,7 +896,12 @@ class MainWindow(QMainWindow):
             return
         self._sub_key = key
         st = self.sink.state()
-        if self.cfg.subs_on_video and self.video.tex_size and self.video.tex_fmt:
+        if self.src == "desktop" and self.fmt:
+            img = (render_subtitle(st["lines"], st["partial"], style, self.fmt["h"], self.fmt["w"])
+                   if self.cfg.subs_on_video else None)
+            self.overlay.set_image(img)
+            self.video.set_subtitle_image(None, (1, 1), 0)
+        elif self.cfg.subs_on_video and self.video.tex_size and self.video.tex_fmt:
             vw, vh = self.video.tex_size
             img = render_subtitle(st["lines"], st["partial"], style, vh, vw)
             self.video.set_subtitle_image(img, (vw, vh), int(style.get("bottom", 40) * vh / 1080))
@@ -785,7 +985,7 @@ class MainWindow(QMainWindow):
             return
         f = self.fmt
         rec.start(f["w"], f["h"], f["fps"], self.cap.sample_rate, folder=rec_folder(self.cfg),
-                  quality=self.cfg.rec_quality, codec=self.cfg.rec_codec)
+                  quality=self.cfg.rec_quality, codec=self.cfg.rec_codec, pix=f.get("pix", "nv12"))
         if self.cfg.rec_srt:
             try:
                 self.rec_srt = RecSrt(os.path.splitext(rec.path)[0] + ".srt")
@@ -985,7 +1185,8 @@ class MainWindow(QMainWindow):
             devs = [d["name"] for d in capture.list_devices() if "video" in d["types"]]
         except Exception:
             devs = []
-        dlg = SettingsDialog(self.cfg, devs, self, page)
+        self._refresh_outputs()
+        dlg = SettingsDialog(self.cfg, devs, self, page, outputs=self.outputs)
         if dlg.exec() != SettingsDialog.Accepted:
             return
         old_dev = self.cfg.dshow_device
@@ -1011,9 +1212,12 @@ class MainWindow(QMainWindow):
                     time.sleep(0.5)
                     self.engine.start("live")
                 threading.Thread(target=restart, daemon=True).start()
-        if "dshow_device" in changed and self.cfg.dshow_device != old_dev and not self.rec.active:
+        if (("dshow_device" in changed and self.cfg.dshow_device != old_dev)
+                or changed & {"source", "desktop_output", "desktop_fps"}) and not self.rec.active:
             self.dev = None
             self.restart_pipeline()
+        if "desktop_subs_in_rec" in changed:
+            self._apply_source()
         if "monitor_audio" in changed:
             self.muted = not self.cfg.monitor_audio
             self.btn_mute.setIcon(icon("mute" if self.muted else "volume", "#dfe3ff", 20))
@@ -1042,6 +1246,7 @@ class MainWindow(QMainWindow):
             if self.server:
                 self.server.stop()
             self.sink.close()
+            self.overlay.close()
             if self._audio_dev:
                 sdl2.SDL_CloseAudioDevice(self._audio_dev)
             self.video.close_sdl()

@@ -30,6 +30,11 @@ UninstallDisplayIcon={app}\rksubby.exe
 UninstallDisplayName=rksubby V3
 Compression=lzma2/ultra64
 SolidCompression=yes
+; Minden az egyben (modellel együtt ~2,4 GB): a GitHub fájlonként 2 GB-ot enged, ezért több részre bontva.
+; A Setup.exe és a -N.bin részek legyenek ugyanabban a mappában.
+DiskSpanning=yes
+DiskSliceSize=1900000000
+SlicesPerDisk=1
 LZMANumBlockThreads=8
 LZMAUseSeparateProcess=yes
 WizardStyle=modern

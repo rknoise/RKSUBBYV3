@@ -68,9 +68,20 @@ def gpu_name():
         return ""
 
 
+def bundled_model(name):
+    """A telepítővel érkezett modell mappája ({app}/models/<név>), ha van; különben None (letöltés kell)."""
+    roots = [os.path.dirname(sys.executable)] if getattr(sys, "frozen", False) else []
+    roots.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    for r in roots:
+        d = os.path.join(r, "models", name)
+        if os.path.isfile(os.path.join(d, "model.bin")):
+            return d
+    return None
+
+
 def model_is_cached(name):
     """Le van-e már töltve a felismerő modell (a Hugging Face gyorsítótárban)."""
-    if os.path.isdir(name):
+    if bundled_model(name) or os.path.isdir(name):
         return True
     try:
         from faster_whisper.utils import download_model
@@ -105,6 +116,7 @@ class WhisperASR:
         self.model_name, self.device, self.compute_type = model_name, device, compute_type
         self.language = language
         self.hotwords = ""            # játékprofilonként változik, újratöltés nélkül
+        model_name = bundled_model(model_name) or model_name   # telepítővel érkezett modell: nincs letöltés
         try:
             # Először csak a helyi gyorsítótárból: nem kérdezi le minden indításkor a Hugging Face-t
             self.model = WhisperModel(model_name, device=device, compute_type=compute_type, local_files_only=True)

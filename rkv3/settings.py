@@ -73,7 +73,7 @@ class ColorButton(QPushButton):
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, cfg, devices: list[str], parent=None, page=0):
+    def __init__(self, cfg, devices: list[str], parent=None, page=0, outputs=None):
         super().__init__(parent)
         self.cfg = cfg
         self.setWindowTitle("Beállítások – rksubby V3")
@@ -93,7 +93,7 @@ class SettingsDialog(QDialog):
                                   ("Beszédfelismerés", "mic", self._page_asr),
                                   ("Felirat", "cc", self._page_subs),
                                   ("Felvétel", "record", self._page_rec),
-                                  ("Kép és hang", "video", lambda: self._page_av(devices)),
+                                  ("Kép és hang", "video", lambda: self._page_av(devices, outputs or [])),
                                   ("Névjegy", "info", self._page_about)):
             self.nav.addItem(name)
             self.nav.item(self.nav.count() - 1).setIcon(icon(ic, "#c9b8ff", 18))
@@ -327,10 +327,17 @@ class SettingsDialog(QDialog):
                               "képernyő · F12 pillanatkép · F5 jel újrafelismerése"))
         return form
 
-    def _page_av(self, devices):
+    def _page_av(self, devices, outputs):
         c = self.cfg
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.source = QComboBox()
+        for k, label in (("auto", "Automatikus – a kártya, ha van jele; különben a Windows asztal"),
+                         ("card", "Capture kártya (Xbox, PlayStation, bármilyen HDMI)"),
+                         ("desktop", "Windows asztal (PC-s játék, program, videó)")):
+            self.source.addItem(label, k)
+        self.source.setCurrentIndex(max(0, self.source.findData(c.source)))
+        form.addRow("Forrás:", self.source)
         self.dev = QComboBox()
         self.dev.addItem("Automatikus (capture kártya keresése)", "")
         for d in devices:
@@ -339,6 +346,27 @@ class SettingsDialog(QDialog):
         form.addRow("Capture kártya:", self.dev)
         form.addRow("", _hint("A kép és a hang is a kártyáról jön, egyetlen csatornán (DirectShow). A kártyát egyszerre "
                               "csak egy program használhatja: a RECentral és az OBS legyen bezárva."))
+        self.mon = QComboBox()
+        for o in outputs:
+            self.mon.addItem(f"{o['name']} – {o['w']}×{o['h']}, {o['hz']} Hz{' (fő)' if o.get('primary') else ''}",
+                             o["idx"])
+        if not outputs:
+            self.mon.addItem("Monitor 1", 0)
+        self.mon.setCurrentIndex(max(0, self.mon.findData(c.desktop_output)))
+        form.addRow("Asztal – monitor:", self.mon)
+        self.dfps = QComboBox()
+        self.dfps.addItem("120 fps (ha a monitor tudja)", 120)
+        self.dfps.addItem("60 fps (kisebb fájl, kisebb terhelés)", 60)
+        self.dfps.setCurrentIndex(max(0, self.dfps.findData(c.desktop_fps)))
+        form.addRow("Asztal – képkocka:", self.dfps)
+        self.dburn = QCheckBox("Asztali módban a képernyőn lévő felirat a felvételre is kerüljön (beégetve)")
+        self.dburn.setChecked(c.desktop_subs_in_rec)
+        form.addRow("", self.dburn)
+        form.addRow("", _hint("Asztali módban a kép a Windows képernyőrögzítőjéből (DXGI), a hang a rendszerhangból "
+                              "(WASAPI loopback) jön. A játékba nem nyúl bele, csalásvédelmet nem zavar. A felirat a "
+                              "képernyő alján jelenik meg, minden ablak fölött – ehhez a játék fusson <b>keret nélküli "
+                              "ablakban</b> (a kizárólagos teljes képernyő eltakarja). Az rksubby saját ablaka nem kerül "
+                              "a felvételre."))
         self.monitor = QCheckBox("A játék hangja szóljon ezen a gépen is")
         self.monitor.setChecked(c.monitor_audio)
         form.addRow("", self.monitor)
@@ -438,6 +466,8 @@ class SettingsDialog(QDialog):
             "rec_dir": self.rec_dir.text().strip(), "rec_quality": self.quality.currentData(),
             "rec_codec": self.codec.currentData(), "rec_srt": self.rec_srt.isChecked(),
             "dshow_device": self.dev.currentData(), "monitor_audio": self.monitor.isChecked(),
+            "source": self.source.currentData(), "desktop_output": self.mon.currentData(),
+            "desktop_fps": self.dfps.currentData(), "desktop_subs_in_rec": self.dburn.isChecked(),
         }
 
     def new_key(self):

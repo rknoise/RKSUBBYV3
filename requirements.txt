@@ -3,6 +3,8 @@ PySide6-Essentials>=6.8     # felület (Qt, LGPL)
 av>=14                      # PyAV: a capture kártya (DirectShow), NVENC-kódolás, export
 pysdl2                      # GPU-s előnézet (Direct3D 11) és hang
 pysdl2-dll
+dxcam                       # Windows asztal rögzítése (DXGI Desktop Duplication)
+PyAudioWPatch               # a gép hangja (WASAPI loopback)
 numpy
 pillow
 faster-whisper>=1.2.1       # beszédfelismerés (+ Silero VAD)

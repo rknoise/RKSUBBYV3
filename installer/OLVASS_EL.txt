@@ -1,24 +1,37 @@
-rksubby V3 – Xbox kép 1080p120-ig, felvétel és élő magyar felirat
-=================================================================
+rksubby V3 – Xbox / PC kép 1080p120-ig, felvétel és élő magyar felirat
+======================================================================
 
-TELEPÍTÉS
-  Futtasd: rksubby_V3_Setup.exe  (rendszergazdai jog nem kell)
-  Benne van minden: a program, Python, FFmpeg/PyAV, SDL2, Qt, NVENC kódoló, faster-whisper,
-  és az NVIDIA CUDA-könyvtárak a GPU-s beszédfelismeréshez.
-  A beszédfelismerő modellt (distil-large-v3, kb. 1,5 GB) az első feliratozáskor egyszer letölti.
+TELEPÍTÉS (minden az egyben)
+  A telepítő több részből áll (a GitHub fájlonként legfeljebb 2 GB-ot enged):
+      rksubby_V3_Setup.exe
+      rksubby_V3_Setup-1.bin
+      rksubby_V3_Setup-2.bin
+  Töltsd le MINDET ugyanabba a mappába, és futtasd a rksubby_V3_Setup.exe-t (rendszergazdai jog nem kell).
+  Benne van minden: a program, Python, Qt, FFmpeg/PyAV, SDL2, NVENC kódoló, faster-whisper,
+  az NVIDIA CUDA-könyvtárak ÉS a beszédfelismerő modell (distil-large-v3) – semmit nem kell letölteni.
   Eltávolítás: Gépház › Alkalmazások › rksubby V3.
+  Frissítés: ha új kiadás jelenik meg a GitHubon, a program fejlécében megjelenik az „Új verzió” gomb.
 
 AMI KELL HOZZÁ (nem csomagolható)
-  • Capture kártya illesztőprogrammal (pl. AVerMedia Live Gamer 4K / GC573 – a gyártó oldaláról).
+  • Xbox-hoz: capture kártya illesztőprogrammal (pl. AVerMedia Live Gamer 4K / GC573 – a gyártó oldaláról).
   • NVIDIA videokártya ajánlott (felvétel NVENC-cel, gyors beszédfelismerés). Nélküle is elindul.
   • A RECentral, az OBS és a régi rksubbyV2 legyen bezárva: a kártyát egyszerre egy program használhatja.
 
+FORRÁS: CAPTURE KÁRTYA VAGY WINDOWS ASZTAL
+  A fejléc „Kártya / Asztal” gombjával (vagy Beállítások › Kép és hang) választhatsz:
+  • Automatikus: a kártya, ha van jele (Xbox be van kapcsolva); különben a Windows asztal.
+    Ha közben bekapcsolod az Xboxot, magától visszavált a kártyára.
+  • Capture kártya: Xbox, PlayStation, bármilyen HDMI-forrás (1080p / 1440p / 4K, 60 / 120 Hz).
+  • Windows asztal: PC-s játék, program, videó – a kiválasztott monitor képe és a gép hangja.
+    A felirat a képernyő alján jelenik meg, minden ablak fölött (a játék fusson keret nélküli ablakban).
+    Az rksubby saját ablaka nem kerül a felvételre.
+
 HASZNÁLAT
-  Indításkor a program megkeresi a kártyát, felismeri a jelet (1080p / 1440p / 4K, 60 / 120 Hz),
-  és elindítja a feliratozást. Beállítások: a jobb felső fogaskerék (fordító, DeepL-kulcs, felirat, felvétel).
   F9  felvétel indítása / leállítása      F10  szünet / folytatás
   F8  felirat a képen be/ki               F11  teljes képernyő (vagy dupla kattintás), Esc: vissza
   F12 pillanatkép                         F5   jel újrafelismerése
+  Beállítások: a jobb felső fogaskerék (fordító: DeepL / Lokális AI / Google, DeepL-kulcs, felirat, felvétel).
   Felvételek: Videók\rksubby  (.mp4 HEVC/H.264 + AAC, mellette .srt felirat)
   „Export felirattal”: a felvétel új változata, a felirat beégetve a képbe.
+  „Próba” gomb: a feliratozó kipróbálása egy beépített angol mintafelvétellel.
   Beállítások és napló: %USERPROFILE%\.rksubby  (rksubby.log)
