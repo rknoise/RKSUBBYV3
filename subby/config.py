@@ -116,6 +116,11 @@ DEFAULTS = {
     "desktop_subs_in_rec": False,    # asztali módban a képernyőn lévő felirat a felvételre is kerüljön (beégetve)
     "update_check": True,            # indításkor szól, ha van új kiadás a GitHubon
 
+    # --- Cutscene-figyelő (V3.1) ---
+    "cut_preroll_s": 5,              # a jelenet elé ennyi másodperc kerül az előpufferből
+    "cut_min_s": 5,                  # ennél rövidebb „jelenet” (pl. menü) a Lomtárba kerül
+    "cut_stop_s": 2.0,               # ennyi ideig kell visszalátszania a HUD-nak a leállításhoz
+
     # --- V3 felület ---
     "subs_on_video": True,           # a felirat a képen
     "obs_server": False,             # OBS böngészőforrás-felirat a helyi webszerveren
@@ -133,7 +138,7 @@ LIVE_KEYS = {
     "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s",
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
     "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
-    "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec", "desktop_overlay",
+    "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec", "desktop_overlay", "cut_preroll_s", "cut_min_s", "cut_stop_s",
     "update_check", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
     "monitor_volume", "player_topmost", "screen_overlay", "launch_player", "autostart", "ffmpeg_path",
     # a fordító futás közben cserélhető (Engine.reload_translator)

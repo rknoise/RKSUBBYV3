@@ -27,7 +27,14 @@ FORRÁS: CAPTURE KÁRTYA VAGY WINDOWS ASZTAL
     bekapcsolható a felirat-sáv a képernyő alján, a játék fölött (Beállítások › Kép és hang).
     Az rksubby saját ablaka nem kerül a felvételre.
 
+CUTSCENE-FIGYELŐ (F7)
+  A vezérlősáv „Cutscene” gombjával a program játék közben magától felveszi az átvezető jeleneteket.
+  Első alkalommal keretezd be a képen a mindig látszó HUD-elemeket (minitérkép, életerő, óra), utána
+  kb. 8 másodpercig tanul (játssz tovább). Ha a HUD eltűnik, indul a felvétel (5 mp előfelvétellel),
+  ha visszajön, leáll. A rövid téves találatok (menü, térkép) a Lomtárba kerülnek.
+
 HASZNÁLAT
+  F7  cutscene-figyelő be/ki
   F9  felvétel indítása / leállítása      F10  szünet / folytatás
   F8  felirat a képen be/ki               F11  teljes képernyő (vagy dupla kattintás), Esc: vissza
   F12 pillanatkép                         F5   jel újrafelismerése

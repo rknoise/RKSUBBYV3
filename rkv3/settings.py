@@ -320,10 +320,23 @@ class SettingsDialog(QDialog):
         self.rec_srt = QCheckBox("Felirat mentése a felvétel mellé (.srt – a VLC és az MPC magától betölti)")
         self.rec_srt.setChecked(c.rec_srt)
         form.addRow("", self.rec_srt)
+        self.cut_pre = QSpinBox()
+        self.cut_pre.setRange(0, 15)
+        self.cut_pre.setSuffix(" mp")
+        self.cut_pre.setValue(int(c.cut_preroll_s))
+        self.cut_min = QSpinBox()
+        self.cut_min.setRange(0, 120)
+        self.cut_min.setSuffix(" mp")
+        self.cut_min.setValue(int(c.cut_min_s))
+        form.addRow("Cutscene – előfelvétel:", self.cut_pre)
+        form.addRow("Cutscene – legrövidebb jelenet:", self.cut_min)
+        form.addRow("", _hint("<b>Cutscene-figyelő</b> (a vezérlősáv Cutscene gombja, F7): ha a megjelölt HUD eltűnik a "
+                              "képről, magától felveszi a jelenetet; a fájl az előfelvétellel korábbról indul. Az ennél "
+                              "rövidebb „jelenetek” (pl. menü, térkép) a Lomtárba kerülnek."))
         form.addRow("", _hint("A felvétel felbontása és képkockasebessége mindig a bejövő jelé (pl. 1080p120). "
                               "Kódolás: NVIDIA NVENC (videokártyán, a gépet alig terheli). A fájl áramszünet vagy "
                               "összeomlás után is lejátszható. Feliratos (beégetett) változat: Felvételek › Export."))
-        form.addRow("", _hint("<b>Gyorsbillentyűk:</b> F9 felvétel · F10 szünet · F8 felirat a képen · F11 teljes "
+        form.addRow("", _hint("<b>Gyorsbillentyűk:</b> F7 cutscene-figyelő · F9 felvétel · F10 szünet · F8 felirat a képen · F11 teljes "
                               "képernyő · F12 pillanatkép · F5 jel újrafelismerése"))
         return form
 
@@ -469,6 +482,7 @@ class SettingsDialog(QDialog):
             "obs_server": self.obs.isChecked(),
             "rec_dir": self.rec_dir.text().strip(), "rec_quality": self.quality.currentData(),
             "rec_codec": self.codec.currentData(), "rec_srt": self.rec_srt.isChecked(),
+            "cut_preroll_s": self.cut_pre.value(), "cut_min_s": self.cut_min.value(),
             "dshow_device": self.dev.currentData(), "monitor_audio": self.monitor.isChecked(),
             "source": self.source.currentData(), "desktop_output": self.mon.currentData(),
             "desktop_fps": self.dfps.currentData(), "desktop_subs_in_rec": self.dburn.isChecked(),

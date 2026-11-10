@@ -46,6 +46,7 @@ from subby.engine import Engine  # noqa: E402
 
 from . import __version__  # noqa: E402
 from . import capture  # noqa: E402
+from . import cutscene  # noqa: E402
 from . import desktop  # noqa: E402
 from .icons import icon  # noqa: E402
 from .theme import QSS  # noqa: E402
@@ -147,6 +148,18 @@ class Tap:
             pass
 
 
+class Fan:
+    """A forrás képkockái a kézi felvevőnek és (ha a cutscene-figyelő él) az előpufferes kódolónak is mennek."""
+
+    def __init__(self, rec, ring):
+        self.rec, self.ring = rec, ring
+
+    def push(self, kind, frame, t):
+        self.rec.push(kind, frame, t)
+        if self.ring.active and not self.rec.active:   # kézi felvétel alatt a figyelő szünetel
+            self.ring.push(kind, frame, t)
+
+
 class Bus(QObject):
     recordings_changed = Signal()
     export_progress = Signal(float)
@@ -155,6 +168,7 @@ class Bus(QObject):
     source_changed = Signal()
     update_available = Signal(str, str)
     devices_ready = Signal(list)
+    cut_error = Signal(str)
 
 
 def card(title):
@@ -198,6 +212,11 @@ class MainWindow(QMainWindow):
         self.taps: list = []
         self.rec = capture.Recorder()
         self.rec_srt: RecSrt | None = None
+        self.ring = cutscene.ReplayRing()
+        self.fan = Fan(self.rec, self.ring)
+        self.cut = cutscene.CutsceneWatcher(self.ring, self._cut_path, self._cut_started, self._cut_done,
+                                            is_blocked=lambda: self.rec.active)
+        self.cut_srt: RecSrt | None = None
         self.sink = Sink(self.cfg, self._on_cue)
         self.engine = Engine(self.cfg, self.sink, log=self._engine_log)
         self.engine.monitor_enabled = False
@@ -235,6 +254,7 @@ class MainWindow(QMainWindow):
         self.bus.source_changed.connect(self._apply_source)
         self.bus.update_available.connect(self._show_update)
         self.bus.devices_ready.connect(lambda c: setattr(self, "cards", c))
+        self.bus.cut_error.connect(self._cut_failed)
         self._refresh_outputs()
         self._build_ui()
         self._shortcuts()
@@ -291,6 +311,10 @@ class MainWindow(QMainWindow):
             c.setObjectName("Chip")
             hl.addWidget(c)
         self.chip_rec.hide()
+        self.chip_cut = QLabel("")
+        self.chip_cut.setObjectName("Chip")
+        self.chip_cut.hide()
+        hl.addWidget(self.chip_cut)
         self.btn_update = QPushButton()
         self.btn_update.setObjectName("UpdateBtn")
         self.btn_update.hide()
@@ -351,6 +375,18 @@ class MainWindow(QMainWindow):
         self.btn_snap = tool("camera", "Pillanatkép (F12)")
         self.btn_snap.clicked.connect(self.snapshot)
         cl.addWidget(self.btn_snap)
+        cl.addWidget(self._sep())
+        self.btn_cut = QPushButton("  Cutscene")
+        self.btn_cut.setObjectName("Toggle")
+        self.btn_cut.setIcon(icon("film", "#dfe3ff", 18))
+        self.btn_cut.setCheckable(True)
+        self.btn_cut.setToolTip("Cutscene-figyelő (F7): ha a megjelölt HUD (térkép, életerő…) eltűnik a képről, "
+                                "magától felveszi az átvezető jelenetet, és leállítja, amikor a HUD visszajön.")
+        self.btn_cut.clicked.connect(self.toggle_cutscene)
+        self.btn_hud = tool("crop", "HUD megjelölése a cutscene-figyelőhöz (minitérkép, életerő, óra…)", size=18)
+        self.btn_hud.clicked.connect(self.remark_hud)
+        cl.addWidget(self.btn_cut)
+        cl.addWidget(self.btn_hud)
         cl.addStretch(1)
         self.btn_mute = tool("mute" if self.muted else "volume", "Hang be/ki")
         self.btn_mute.clicked.connect(self._toggle_mute)
@@ -468,7 +504,7 @@ class MainWindow(QMainWindow):
         return s
 
     def _shortcuts(self):
-        for key, fn in (("F9", self.toggle_record), ("F10", self.toggle_pause), ("F8", lambda: self.btn_cc.toggle()),
+        for key, fn in (("F7", lambda: self.btn_cut.click()), ("F9", self.toggle_record), ("F10", self.toggle_pause), ("F8", lambda: self.btn_cc.toggle()),
                         ("F11", self.toggle_fullscreen), ("F12", self.snapshot), ("F5", self.restart_pipeline),
                         ("Escape", lambda: self.fullscreen and self.toggle_fullscreen())):
             sc_ = QShortcut(QKeySequence(key), self)
@@ -477,7 +513,7 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ capture pipeline
     def restart_pipeline(self):
-        if self.rec.active:
+        if self.rec.active or self.ring.writing:
             return
         if not self._busy.acquire(blocking=False):
             return
@@ -524,7 +560,7 @@ class MainWindow(QMainWindow):
         fmt.update(src="card", pix="nv12", name=self.dev)
         self.fmt = fmt
         self._stalled = False
-        cap = capture.Capture(self.dev, fmt, self._on_video, self._on_audio, self.rec)
+        cap = capture.Capture(self.dev, fmt, self._on_video, self._on_audio, self.fan)
         cap.start()
         self.cap, self.src = cap, "card"
         self.state = "nosignal" if fmt.get("nosignal") else "run"
@@ -541,7 +577,7 @@ class MainWindow(QMainWindow):
         fps = capture.snap_rate(min(int(self.cfg.desktop_fps), max(30, int(o.get("hz", 60)))))
         fmt = {"w": o["w"], "h": o["h"], "fps": fps, "src": "desktop", "pix": "bgra", "name": o["name"],
                "output": o["idx"], "nosignal": False}
-        cap = desktop.DesktopCapture(o, fmt, self._on_video, self._on_audio, self.rec)
+        cap = desktop.DesktopCapture(o, fmt, self._on_video, self._on_audio, self.fan)
         cap.start()
         self.fmt, self.cap, self.src = fmt, cap, "desktop"
         self._stalled = False
@@ -567,6 +603,8 @@ class MainWindow(QMainWindow):
         """GUI-szál: asztali módban a saját ablak kimarad a felvételből, a felirat a képernyő aljára kerül."""
         dsk = self.src == "desktop"
         desktop.exclude_from_capture(int(self.winId()), dsk)
+        if self.btn_cut.isChecked():          # új forrás vagy felbontás: a figyelő újraindul hozzá
+            self._rearm_cut()
         self._sub_key = None
         if dsk and self.fmt and self.cfg.desktop_overlay:
             o = next((x for x in self.outputs if x["idx"] == self.fmt.get("output")), None)
@@ -663,6 +701,131 @@ class MainWindow(QMainWindow):
     def _on_video(self, frame):
         self.last_frame = frame
         self.video.push_frame(frame)
+        if self.cut.armed:
+            self.cut.submit(frame)
+
+    # ------------------------------------------------------------------ cutscene-figyelő
+    def _hud_size(self):
+        return (self.fmt["w"], self.fmt["h"]) if self.fmt else None
+
+    def _profile_name(self):
+        try:
+            return sc.load_profile(self.cfg.profile)["name"]
+        except Exception:
+            return self.cfg.profile
+
+    def toggle_cutscene(self, on=None):
+        on = self.btn_cut.isChecked() if on is None else on
+        if not on:
+            self._cut_off()
+            return
+        if not (self.cap and self.fmt and self.state == "run" and self.video.has_video()):
+            self.btn_cut.setChecked(False)
+            self.statusBar().showMessage("A cutscene-figyelőhöz kép kell (nincs jel).", 6000)
+            return
+        model = cutscene.HudModel.load(self.cfg.profile, self._hud_size())
+        if model is None or not any(r.usable for r in model.regions):
+            model = self._mark_hud()
+            if model is None:
+                self.btn_cut.setChecked(False)
+                return
+        self._cut_on(model)
+
+    def remark_hud(self):
+        if not (self.cap and self.fmt and self.state == "run" and self.video.has_video()):
+            self.statusBar().showMessage("A HUD megjelöléséhez kép kell (nincs jel).", 6000)
+            return
+        if self.ring.writing:
+            self.statusBar().showMessage("Jelenet felvétele közben nem jelölhető újra.", 6000)
+            return
+        model = self._mark_hud(cutscene.HudModel.load(self.cfg.profile, self._hud_size()))
+        if model is not None and self.btn_cut.isChecked():
+            self._cut_off(keep_button=True)
+            self._cut_on(model)
+
+    def _mark_hud(self, existing=None):
+        from .hudmark import HudMarkDialog, frame_to_qimage
+
+        frame = self.last_frame
+        if frame is None:
+            return None
+        dlg = HudMarkDialog(frame_to_qimage(frame), [r.rect for r in existing.regions] if existing else (),
+                            self._profile_name(), self)
+        if dlg.exec() != HudMarkDialog.Accepted:
+            return None
+        model, rejected = cutscene.HudModel.from_frame(self.cfg.profile, frame, dlg.rects())
+        if not model.regions:
+            QMessageBox.information(self, "HUD megjelölése",
+                                    "A megjelölt részeken nincs elég jól látható részlet (él, keret, ikon).\n"
+                                    "Jelölj nagyobb vagy kontrasztosabb elemet, pl. a minitérképet a keretével.")
+            return None
+        if rejected:
+            self.statusBar().showMessage(f"{len(rejected)} megjelölt elem túl sima volt, kimaradt.", 8000)
+        model.save()
+        return model
+
+    def _cut_on(self, model):
+        f = self.fmt
+        self.ring.start(f["w"], f["h"], f["fps"], self.cap.sample_rate, f.get("pix", "nv12"), self.cfg.rec_codec,
+                        capture.Recorder.QUALITY_CQ.get(self.cfg.rec_quality, 21), preroll=self.cfg.cut_preroll_s)
+        self.cut.count = 0
+        self.cut.arm(model, stop_delay=self.cfg.cut_stop_s)
+        self.btn_cut.setChecked(True)
+        log.info("cutscene watcher armed: profile=%s size=%s regions=%d learning=%s", model.profile, model.size,
+                 len(model.regions), model.learning)
+
+    def _cut_off(self, keep_button=False):
+        self.cut.disarm()
+        self.ring.stop()
+        if not keep_button:
+            self.btn_cut.setChecked(False)
+        self.chip_cut.hide()
+
+    def _rearm_cut(self):
+        self._cut_off(keep_button=True)
+        model = None
+        if self.cap and self.fmt and self.state == "run":
+            model = cutscene.HudModel.load(self.cfg.profile, self._hud_size())
+        if model is not None and any(r.usable for r in model.regions):
+            self._cut_on(model)
+        else:
+            self.btn_cut.setChecked(False)
+            self.statusBar().showMessage("Cutscene-figyelő leállt: ehhez a forráshoz / felbontáshoz / profilhoz még "
+                                         "nincs megjelölt HUD.", 10000)
+
+    def _cut_failed(self, msg):
+        self._cut_off()
+        QMessageBox.warning(self, "Cutscene-figyelő", msg)
+
+    def _cut_path(self):
+        d = rec_folder(self.cfg)
+        os.makedirs(d, exist_ok=True)
+        f = self.fmt
+        tag = f"{f['h']}p{f['fps']}" if f["w"] * 9 == f["h"] * 16 else f"{f['w']}x{f['h']}_{f['fps']}"
+        return os.path.join(d, time.strftime(f"rksubby_%Y-%m-%d_%H-%M-%S_jelenet_{tag}.mp4"))
+
+    def _cut_started(self, path):           # a figyelő szálából
+        if self.cfg.rec_srt:
+            try:
+                self.cut_srt = RecSrt(os.path.splitext(path)[0] + ".srt")
+            except OSError:
+                self.cut_srt = None
+        self.bus.notify.emit("Cutscene: jelenet felvétele indult.")
+        self.bus.recordings_changed.emit()
+
+    def _cut_done(self, path, secs):        # a kódoló szálából
+        rs, self.cut_srt = self.cut_srt, None
+        if rs:
+            rs.close()
+        srt = os.path.splitext(path)[0] + ".srt"
+        if secs < float(self.cfg.cut_min_s):
+            for p in (path, srt):
+                if os.path.exists(p):
+                    recycle(p)
+            self.bus.notify.emit(f"Cutscene: {secs:.0f} mp-es jelenet túl rövid volt, a Lomtárba került.")
+        else:
+            self.bus.notify.emit(f"Cutscene mentve ({int(secs) // 60}:{int(secs) % 60:02d}): {os.path.basename(path)}")
+        self.bus.recordings_changed.emit()
 
     def _on_audio(self, frame):
         try:
@@ -829,6 +992,25 @@ class MainWindow(QMainWindow):
             (f"Kártya: {cap.fps_in:.0f} fps · előnézet: {self.video.fps:.0f} fps · " if cap else "")
             + (f"kódoló: {getattr(rec, 'encoder_name', '')} · " if rec.active else "")
             + (self.dev or ""))
+        # cutscene-figyelő
+        if self.cut.armed:
+            cs = self.cut.status()
+            self.chip_cut.show()
+            if cs["state"] == "learn":
+                self._chip(self.chip_cut, f"Cutscene: tanul… {cs['learn_left']:.0f} mp (játssz tovább)", "warn")
+            elif cs["state"] == "rec":
+                s = int(cs["rec_s"])
+                self._chip(self.chip_cut, f"● Jelenet felvétele {s // 60}:{s % 60:02d}", "rec")
+            elif cs["state"] == "weak":
+                self._chip(self.chip_cut, "Cutscene: a HUD-minta gyenge – jelöld újra", "err")
+            else:
+                n = cs["count"]
+                self._chip(self.chip_cut, "Cutscene: figyel" + (f" · {n} jelenet" if n else ""), "ok")
+            if self.ring.error:
+                err, self.ring.error = self.ring.error, None
+                self.bus.cut_error.emit(err)
+        elif self.chip_cut.isVisible():
+            self.chip_cut.hide()
         # engine card
         self._update_engine_card(st)
         title = "rksubby V3"
@@ -928,14 +1110,18 @@ class MainWindow(QMainWindow):
 
     def _on_cue(self, hu, en, latency_ms):
         """Kész felirat: a felvétel mellé írt .srt-be (a felvétel idővonalán)."""
+        def add(srt, elapsed):
+            speech_end = elapsed - latency_ms / 1000.0
+            dur_speech = max(0.6, min(8.0, len(en) / 15.0))
+            start = speech_end - dur_speech * 0.85
+            srt.add(start, max(start + display_seconds(hu, self.cfg), speech_end + 1.0), hu)
+
+        cs = self.cut_srt
+        if cs is not None and self.ring.writing:
+            add(cs, self.ring.file_elapsed())
         rs, rec = self.rec_srt, self.rec
-        if rs is None or not rec.active or rec.paused:
-            return
-        speech_end = rec.elapsed - latency_ms / 1000.0
-        dur_speech = max(0.6, min(8.0, len(en) / 15.0))
-        start = speech_end - dur_speech * 0.85
-        end = max(start + display_seconds(hu, self.cfg), speech_end + 1.0)
-        rs.add(start, end, hu)
+        if rs is not None and rec.active and not rec.paused:
+            add(rs, rec.elapsed)
 
     def _toggle_cc(self, on):
         self.cfg.update({"subs_on_video": bool(on)})
@@ -1024,7 +1210,7 @@ class MainWindow(QMainWindow):
                 continue
             has_srt = os.path.exists(os.path.splitext(p)[0] + ".srt")
             name = os.path.basename(p)
-            live = self.rec.active and p == self.rec.path
+            live = (self.rec.active and p == self.rec.path) or (self.ring.writing and p == self.ring.path)
             it = QListWidgetItem(f"{name}\n{fmt_size(size)}{'  · felirat' if has_srt else ''}"
                                  f"{'  · FELVÉTEL FOLYIK' if live else ''}")
             it.setData(Qt.UserRole, p)
@@ -1217,6 +1403,9 @@ class MainWindow(QMainWindow):
                 or changed & {"source", "desktop_output", "desktop_fps"}) and not self.rec.active:
             self.dev = None
             self.restart_pipeline()
+        if self.btn_cut.isChecked() and changed & {"profile", "cut_preroll_s", "cut_stop_s", "rec_codec",
+                                                   "rec_quality"} and not self.ring.writing:
+            self._rearm_cut()
         if changed & {"desktop_subs_in_rec", "desktop_overlay"}:
             self._apply_source()
         if "monitor_audio" in changed:
@@ -1237,6 +1426,8 @@ class MainWindow(QMainWindow):
         self.hide()
         QApplication.processEvents()
         try:
+            self.cut.disarm()
+            self.ring.stop()
             if self.rec.active:
                 self.rec.stop()
                 if self.rec_srt:

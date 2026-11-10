@@ -335,3 +335,51 @@ def _smooth(img):
     for axis in (0, 1):
         x = np.apply_along_axis(lambda r: np.convolve(r, k, mode="same"), axis, x)
     return x
+
+
+class CutsceneTests(unittest.TestCase):
+    """Cutscene-figyelő: a HUD-minta felismerése szintetikus képeken (kártya és GPU nélkül)."""
+
+    W, H = 1280, 720
+
+    def _frame(self, i, with_hud, rng):
+        import av
+        import numpy as np
+
+        y = np.kron(rng.integers(0, 255, (self.H // 8, self.W // 8)).astype(np.uint8), np.ones((8, 8), np.uint8))
+        y = np.roll(y, i * 5, axis=1)
+        if with_hud:      # minitérkép: fix keret, változó tartalom
+            y[500:700, 40:240] = np.kron(rng.integers(40, 200, (10, 10)).astype(np.uint8), np.ones((20, 20), np.uint8))
+            y[500:506, 40:240] = 240
+            y[694:700, 40:240] = 240
+            y[500:700, 40:46] = 240
+            y[500:700, 234:240] = 240
+        return av.VideoFrame.from_ndarray(np.vstack([y, np.full((self.H // 2, self.W), 128, np.uint8)]), format="nv12")
+
+    def test_hud_detection(self):
+        import numpy as np
+
+        from rkv3 import cutscene as C
+
+        rng = np.random.default_rng(7)
+        rect = (30 / self.W, 490 / self.H, 220 / self.W, 220 / self.H)
+        model, rejected = C.HudModel.from_frame("t", self._frame(0, True, rng), [rect])
+        self.assertEqual((len(model.regions), rejected), (1, []))
+        t = 0.0
+        while model.learning:
+            t += 0.125
+            model.update(self._frame(int(t * 80), True, rng), t)
+        self.assertGreaterEqual(model.regions[0].n, C.MIN_MASK)
+        seen = [model.update(self._frame(500 + i, True, rng), t + 1 + i * 0.125) for i in range(8)]
+        self.assertEqual(set(seen), {"present"})
+        gone = [model.update(self._frame(900 + i, False, rng), t + 3 + i * 0.125) for i in range(8)]
+        self.assertEqual(gone[-1], "absent")
+        self.assertLess(model.regions[0].score, C.ABSENT)
+        back = [model.update(self._frame(1300 + i, True, rng), t + 5 + i * 0.125) for i in range(4)]
+        self.assertEqual(back[-1], "present")
+        # sima (részlet nélküli) terület nem használható mintának
+        flat = np.full((self.H * 3 // 2, self.W), 128, np.uint8)
+        import av
+
+        m2, rej2 = C.HudModel.from_frame("t", av.VideoFrame.from_ndarray(flat, format="nv12"), [rect])
+        self.assertEqual((len(m2.regions), rej2), (0, [0]))
