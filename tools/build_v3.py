@@ -50,7 +50,8 @@ def build_app():
             "--add-data", os.path.join(ROOT, "subby", "web") + ";subby/web",
             "--add-data", os.path.join(ROOT, "teszt_angol.wav") + ";.",
             "--collect-all", "sdl2dll", "--collect-all", "av", "--collect-all", "faster_whisper",
-            "--collect-all", "ctranslate2", "--collect-binaries", "onnxruntime",
+            "--collect-all", "ctranslate2", "--collect-binaries", "onnxruntime", "--collect-all", "dxcam",
+            "--collect-all", "pyaudiowpatch", "--collect-all", "comtypes",
             "--hidden-import", "sdl2", "--hidden-import", "PySide6.QtNetwork",
             "--exclude-module", "PyQt5", "--exclude-module", "tkinter", "--exclude-module", "matplotlib",
             "--exclude-module", "torch", "--exclude-module", "IPython"]
@@ -61,6 +62,20 @@ def build_app():
                 args += ["--add-binary", f"{dll};nvidia/{pkg}/bin"]
     args.append(os.path.join(ROOT, "rksubby.py"))
     run(args)
+    bundle_model("distil-large-v3")
+
+
+def bundle_model(name):
+    """Minden az egyben: a beszédfelismerő modell a telepítőbe kerül ({app}/models/<név>)."""
+    from faster_whisper.utils import download_model
+
+    src = download_model(name)            # a gyorsítótárból (ha nincs: letölti)
+    dst = os.path.join(BUILD, "v3", "app", "rksubby", "models", name)
+    shutil.rmtree(dst, ignore_errors=True)
+    os.makedirs(dst)
+    for f in os.listdir(src):
+        shutil.copy2(os.path.join(src, f), os.path.join(dst, f))   # a szimbolikus linkek helyett a valódi fájl
+    print("model bundled:", dst)
 
 
 def make_installer():
@@ -69,6 +84,9 @@ def make_installer():
     exe = iscc()
     if not exe:
         sys.exit("Inno Setup (ISCC.exe) nem található – telepítsd: winget install JRSoftware.InnoSetup")
+    for f in os.listdir(DIST):                 # a régi telepítőrészek ne keveredjenek az újakkal
+        if f.startswith("rksubby_V3_Setup"):
+            os.remove(os.path.join(DIST, f))
     run([exe, f"/DAppVersion={VERSION}", f"/DSrcDir={app_dir}", f"/DOutDir={DIST}",
          os.path.join(ROOT, "installer", "rksubby_v3.iss")])
     shutil.copy2(os.path.join(ROOT, "installer", "OLVASS_EL.txt"), DIST)

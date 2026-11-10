@@ -306,7 +306,7 @@ class Recorder:
     # control (any thread) -------------------------------------------------
     QUALITY_CQ = {"normal": 25, "high": 21, "max": 18}
 
-    def start(self, w, h, fps, sample_rate=48000, folder="", quality="high", codec="hevc"):
+    def start(self, w, h, fps, sample_rate=48000, folder="", quality="high", codec="hevc", pix="nv12"):
         if self.active:
             return
         d = folder or videos_dir()
@@ -316,6 +316,7 @@ class Recorder:
         self.cq = self.QUALITY_CQ.get(quality, 21)
         self.codec = codec if codec in ("hevc", "h264") else "hevc"
         self.encoder_name = ""
+        self.pix = pix if pix in ("nv12", "bgra") else "nv12"   # bgra: asztali forrás, az NVENC alakítja át
         self.elapsed = 0.0
         self.dropped = 0
         self.error = None
@@ -363,9 +364,10 @@ class Recorder:
                     "preset": "p5", "tune": "hq", "rc": "vbr", "cq": str(self.cq),
                     "b": str(bitrate), "maxrate": str(int(bitrate * 1.5)), "bufsize": str(bitrate * 2),
                     "g": str(fps * 2), "bf": "2", "spatial-aq": "1"})
-                vs.width, vs.height, vs.pix_fmt = w, h, "nv12"
+                vs.width, vs.height, vs.pix_fmt = w, h, self.pix
                 vs.codec_context.time_base = Fraction(1, fps)
                 vs.codec_context.open()
+                enc_pix = self.pix
             except Exception as e:  # nincs NVIDIA / NVENC: processzoros kódolás
                 log.warning("NVENC unavailable (%s) -> libx264", e)
                 out.close()
@@ -376,6 +378,7 @@ class Recorder:
                                                             "g": str(fps * 2)})
                 vs.width, vs.height, vs.pix_fmt = w, h, "nv12"
                 vs.codec_context.time_base = Fraction(1, fps)
+                enc_pix = "nv12"
             self.encoder_name = enc
             vs.time_base = Fraction(1, fps * 1000)
             as_ = out.add_stream("aac", rate=sr)
@@ -413,8 +416,8 @@ class Recorder:
                     a_next = None  # resync audio after pause
                 rel = t - t0 - offset
                 if kind == "v":
-                    if frame.format.name != "nv12":
-                        frame = frame.reformat(format="nv12")
+                    if frame.format.name != enc_pix:
+                        frame = frame.reformat(format=enc_pix)
                     pts = max(round(rel * fps), last_vpts + 1)
                     last_vpts = pts
                     frame.pts = pts
@@ -426,8 +429,9 @@ class Recorder:
                     if rel < 0:
                         continue
                     frame.pts = None
-                    if a_next is None:
-                        a_next = max(0, round(rel * sr))
+                    exp = max(0, round(rel * sr))
+                    if a_next is None or exp - a_next > sr // 4:   # első keret, vagy csend utáni rés (loopback)
+                        a_next = exp if a_next is None else max(exp, a_next)
                     for f in res.resample(frame):
                         f.pts = a_next
                         f.time_base = Fraction(1, sr)

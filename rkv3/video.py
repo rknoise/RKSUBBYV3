@@ -16,6 +16,39 @@ from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
+
+class ScreenOverlay(QWidget):
+    """Asztali módban a felirat a képernyő alján, minden ablak fölött; az egér átmegy rajta."""
+
+    def __init__(self):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+                         | Qt.WindowTransparentForInput | Qt.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.img = None
+        self.bottom = 40
+
+    def place(self, screen, bottom_px):
+        g = screen.geometry()
+        h = int(g.height() * 0.45)
+        self.setGeometry(g.x(), g.y() + g.height() - h, g.width(), h)
+        self.bottom = bottom_px
+
+    def set_image(self, img):
+        self.img = img
+        self.update()
+
+    def paintEvent(self, e):
+        if self.img is None or self.img.isNull():
+            return
+        p = QPainter(self)
+        dpr = self.devicePixelRatioF() or 1.0
+        iw, ih = self.img.width() / dpr, self.img.height() / dpr
+        p.drawImage(int((self.width() - iw) / 2), int(self.height() - self.bottom / dpr - ih),
+                    self.img.scaled(int(iw), int(ih), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                    if dpr != 1.0 else self.img)
+        p.end()
+
 U8 = ctypes.POINTER(ctypes.c_uint8)
 
 
@@ -124,7 +157,8 @@ class VideoWidget(QWidget):
         if self.tex_size != (w, h) or self.tex_fmt != fmt:
             if self.tex:
                 sdl2.SDL_DestroyTexture(self.tex)
-            sfmt = sdl2.SDL_PIXELFORMAT_NV12 if fmt == "nv12" else sdl2.SDL_PIXELFORMAT_YUY2
+            sfmt = {"nv12": sdl2.SDL_PIXELFORMAT_NV12, "bgra": sdl2.SDL_PIXELFORMAT_ARGB8888}.get(
+                fmt, sdl2.SDL_PIXELFORMAT_YUY2)
             self.tex = sdl2.SDL_CreateTexture(self.ren, sfmt, sdl2.SDL_TEXTUREACCESS_STREAMING, w, h)
             self.tex_size, self.tex_fmt = (w, h), fmt
             sdl2.SDL_RenderSetLogicalSize(self.ren, w, h)

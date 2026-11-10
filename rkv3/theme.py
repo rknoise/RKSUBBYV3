@@ -28,6 +28,17 @@ QLabel#Chip[state="warn"] {{ color: {YELLOW}; border-color: #5a4a20; }}
 QLabel#Chip[state="err"] {{ color: {RED}; border-color: #5a2630; }}
 QLabel#Chip[state="rec"] {{ color: white; background: #3a1030; border-color: {ACCENT}; }}
 
+QToolButton#SrcBtn {{ background: {PANEL2}; border: 1px solid #3a2f6a; border-radius: 11px; padding: 3px 8px;
+                      color: {TEXT}; font-size: 9pt; }}
+QToolButton#SrcBtn:hover {{ border-color: {PURPLE}; }}
+QToolButton#SrcBtn::menu-indicator {{ subcontrol-position: right center; right: 6px; }}
+QPushButton#UpdateBtn {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {ACCENT}, stop:1 {PURPLE});
+                         border: none; border-radius: 11px; padding: 4px 12px; color: white; font-size: 9pt; }}
+QMenu {{ background: {PANEL2}; border: 1px solid {BORDER}; padding: 6px; }}
+QMenu::item {{ padding: 6px 22px 6px 10px; border-radius: 6px; }}
+QMenu::item:selected {{ background: #241d4d; }}
+QMenu::section {{ color: {MUTED}; padding: 8px 10px 4px 10px; font-size: 8.5pt; }}
+QMenu::separator {{ height: 1px; background: {BORDER}; margin: 4px 6px; }}
 QFrame#VideoFrame {{ background: #04060d; border: 1px solid {BORDER}; border-radius: 14px; }}
 QFrame#ControlBar, QFrame#Card {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 14px; }}
 QFrame#Side {{ background: transparent; }}

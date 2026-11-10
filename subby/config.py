@@ -108,6 +108,13 @@ DEFAULTS = {
     "rec_codec": "hevc",             # "hevc" (kisebb fájl) | "h264" (mindenhol lejátszható)
     "rec_srt": True,                 # a felvétel mellé .srt felirat (VLC, MPC magától betölti)
 
+    # --- Forrás (V3) ---
+    "source": "auto",                # "auto": kártya, ha van jele, különben a Windows asztal | "card" | "desktop"
+    "desktop_output": 0,             # melyik monitor (DXGI-kimenet sorszáma az elsődleges videokártyán)
+    "desktop_fps": 120,              # asztali rögzítés legfeljebb ennyi fps (a monitor frissítésénél nem több)
+    "desktop_subs_in_rec": False,    # asztali módban a képernyőn lévő felirat a felvételre is kerüljön (beégetve)
+    "update_check": True,            # indításkor szól, ha van új kiadás a GitHubon
+
     # --- V3 felület ---
     "subs_on_video": True,           # a felirat a képen
     "obs_server": False,             # OBS böngészőforrás-felirat a helyi webszerveren
@@ -125,7 +132,8 @@ LIVE_KEYS = {
     "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s",
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
     "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
-    "subs_on_video", "obs_server", "side_panel", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
+    "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec",
+    "update_check", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
     "monitor_volume", "player_topmost", "screen_overlay", "launch_player", "autostart", "ffmpeg_path",
     # a fordító futás közben cserélhető (Engine.reload_translator)
     "translator", "translate_fallback", "ollama_url", "ollama_model", "deepl_glossary",
@@ -140,6 +148,7 @@ _CHOICES = {
     "asr_device": ("auto", "cuda", "cpu"),
     "deepl_formality": ("prefer_less", "prefer_more", "default", ""),
     "rec_quality": ("normal", "high", "max"),
+    "source": ("auto", "card", "desktop"),
     "rec_codec": ("hevc", "h264"),
 }
 _COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")

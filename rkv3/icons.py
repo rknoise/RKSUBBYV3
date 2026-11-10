@@ -8,7 +8,7 @@ GLYPH = {
     "mute": "", "record": "", "pause": "", "play": "", "stop": "",
     "delete": "", "folder": "", "info": "", "cc": "", "video": "",
     "export": "", "mic": "", "translate": "", "refresh": "", "check": "",
-    "warning": "", "paste": "", "eye": "", "link": "", "sidebar": "",
+    "warning": "", "desktop": "", "paste": "", "eye": "", "link": "", "sidebar": "",
 }
 _family = None
 
