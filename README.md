@@ -6,8 +6,8 @@
 
 Az rksubby V3 már nem csak feliratoz: **a capture kártya teljes jelét kezeli**. Mutatja az Xbox képét 120 Hz-en, felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
-<p align="center"><img src="docs/rksubby_v3_screenshot.jpg" alt="rksubby V3: az Xbox képe 1080p120-ban, oldalt az élő magyar felirat és az utolsó mondatok" width="100%"></p>
-<p align="center"><sub>Az Xbox képe 1080p · 120 fps-ben, alatta a felvétel vezérlői, jobbra az élő felirat (DeepL) és az utolsó lefordított mondatok.</sub></p>
+<p align="center"><img src="docs/rksubby_v3_screenshot.jpg" alt="rksubby V3: élő magyar felirat az Xbox képén, oldalt az utolsó lefordított mondatok" width="100%"></p>
+<p align="center"><sub>Élő magyar felirat egy angol videóhoz az Xboxról (1080p · 120 fps, DeepL). Jobbra a feliratozó állapota és az utolsó lefordított mondatok.</sub></p>
 
 ## Újdonságok a V3-ban
 
