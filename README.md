@@ -1,6 +1,6 @@
 <p align="center"><img src="Logo_v3.png" alt="rksubby V3 logó" width="220"></p>
 
-# rksubby V3 – Xbox-rögzítő élő magyar felirattal
+# rksubby V3 – Xbox/PS5-rögzítő élő magyar felirattal
 
 > **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) — and now for PC games and apps on the Windows desktop too — with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. A source switch selects the capture card or a Windows monitor (DXGI Desktop Duplication + WASAPI loopback audio; subtitles appear in a click-through on-screen bar), and an automatic mode falls back to the desktop when the console is off. Everything is configured behind a single gear button. The all-in-one installer contains everything, including the CUDA libraries and the speech model; only the capture card driver is not included.
 
