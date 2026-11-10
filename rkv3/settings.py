@@ -382,8 +382,8 @@ class SettingsDialog(QDialog):
             "beszédhez.<br><br>"
             "Felhasznált projektek: faster-whisper (MIT), Whisper / distil-whisper modellek, Silero VAD (MIT), "
             "FFmpeg és PyAV (LGPL), SDL2 (zlib), Qt for Python / PySide6 (LGPL), DeepL API.<br><br>"
-            "Forráskód és kiadások: <a style='color:#c9a8ff' href='https://github.com/rknoise/rksubbyV2'>"
-            "github.com/rknoise/rksubbyV2</a>"))
+            "Forráskód és kiadások: <a style='color:#c9a8ff' href='https://github.com/rknoise/RKSUBBYV3'>"
+            "github.com/rknoise/RKSUBBYV3</a>"))
         open_logs = QPushButton("Naplómappa megnyitása")
         open_logs.setIcon(icon("folder", "#c9b8ff", 16))
         open_logs.clicked.connect(lambda: os.startfile(sc.HOME_DIR))
