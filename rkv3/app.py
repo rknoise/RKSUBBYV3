@@ -568,7 +568,7 @@ class MainWindow(QMainWindow):
         dsk = self.src == "desktop"
         desktop.exclude_from_capture(int(self.winId()), dsk)
         self._sub_key = None
-        if dsk and self.fmt:
+        if dsk and self.fmt and self.cfg.desktop_overlay:
             o = next((x for x in self.outputs if x["idx"] == self.fmt.get("output")), None)
             scr = (o or {}).get("qt") or QGuiApplication.primaryScreen()
             self.overlay.place(scr, int(self.cfg.style.get("bottom", 40) * self.fmt["h"] / 1080))
@@ -891,22 +891,23 @@ class MainWindow(QMainWindow):
     def _subs_tick(self):
         v = self.sink.version
         style = self.cfg.style
-        key = (v, self.cfg.subs_on_video, tuple(sorted(style.items())), self.video.tex_size, self.cfg.max_lines)
+        key = (v, self.cfg.subs_on_video, tuple(sorted(style.items())), self.video.tex_size, self.cfg.max_lines,
+               self.src, self.cfg.desktop_overlay)
         if key == self._sub_key:
             return
         self._sub_key = key
         st = self.sink.state()
-        if self.src == "desktop" and self.fmt:
-            img = (render_subtitle(st["lines"], st["partial"], style, self.fmt["h"], self.fmt["w"])
-                   if self.cfg.subs_on_video else None)
-            self.overlay.set_image(img)
-            self.video.set_subtitle_image(None, (1, 1), 0)
-        elif self.cfg.subs_on_video and self.video.tex_size and self.video.tex_fmt:
+        # A felirat mindig a program lejátszófelületén jelenik meg (kártya és asztali mód is),
+        # így az ablakkal együtt mozog. Asztali módban kérhető mellé a képernyő alján lévő sáv is.
+        img = None
+        if self.cfg.subs_on_video and self.video.tex_size and self.video.tex_fmt:
             vw, vh = self.video.tex_size
             img = render_subtitle(st["lines"], st["partial"], style, vh, vw)
             self.video.set_subtitle_image(img, (vw, vh), int(style.get("bottom", 40) * vh / 1080))
         else:
             self.video.set_subtitle_image(None, (1, 1), 0)
+        if self.src == "desktop" and self.cfg.desktop_overlay:
+            self.overlay.set_image(img)
         hist = self.sink.history_list(40)
         hkey = (len(hist), hist[-1]["t"] + hist[-1]["hu"] if hist else "")
         if hkey != self._hist_n:
@@ -1216,7 +1217,7 @@ class MainWindow(QMainWindow):
                 or changed & {"source", "desktop_output", "desktop_fps"}) and not self.rec.active:
             self.dev = None
             self.restart_pipeline()
-        if "desktop_subs_in_rec" in changed:
+        if changed & {"desktop_subs_in_rec", "desktop_overlay"}:
             self._apply_source()
         if "monitor_audio" in changed:
             self.muted = not self.cfg.monitor_audio

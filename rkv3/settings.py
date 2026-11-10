@@ -359,14 +359,18 @@ class SettingsDialog(QDialog):
         self.dfps.addItem("60 fps (kisebb fájl, kisebb terhelés)", 60)
         self.dfps.setCurrentIndex(max(0, self.dfps.findData(c.desktop_fps)))
         form.addRow("Asztal – képkocka:", self.dfps)
-        self.dburn = QCheckBox("Asztali módban a képernyőn lévő felirat a felvételre is kerüljön (beégetve)")
+        self.dover = QCheckBox("Asztali módban felirat-sáv a rögzített monitor alján is (a játék fölött)")
+        self.dover.setChecked(c.desktop_overlay)
+        form.addRow("", self.dover)
+        self.dburn = QCheckBox("… és ez a sáv a felvételre is kerüljön (beégetve)")
         self.dburn.setChecked(c.desktop_subs_in_rec)
         form.addRow("", self.dburn)
         form.addRow("", _hint("Asztali módban a kép a Windows képernyőrögzítőjéből (DXGI), a hang a rendszerhangból "
                               "(WASAPI loopback) jön. A játékba nem nyúl bele, csalásvédelmet nem zavar. A felirat a "
-                              "képernyő alján jelenik meg, minden ablak fölött – ehhez a játék fusson <b>keret nélküli "
-                              "ablakban</b> (a kizárólagos teljes képernyő eltakarja). Az rksubby saját ablaka nem kerül "
-                              "a felvételre."))
+                              "program lejátszófelületén jelenik meg (az ablakkal együtt mozog, pl. a másik monitorra). "
+                              "Egy monitornál kapcsold be a felirat-sávot: az a játék fölött, a képernyő alján látszik – "
+                              "ehhez a játék fusson <b>keret nélküli ablakban</b>. Az rksubby saját ablaka nem kerül a "
+                              "felvételre."))
         self.monitor = QCheckBox("A játék hangja szóljon ezen a gépen is")
         self.monitor.setChecked(c.monitor_audio)
         form.addRow("", self.monitor)
@@ -468,6 +472,7 @@ class SettingsDialog(QDialog):
             "dshow_device": self.dev.currentData(), "monitor_audio": self.monitor.isChecked(),
             "source": self.source.currentData(), "desktop_output": self.mon.currentData(),
             "desktop_fps": self.dfps.currentData(), "desktop_subs_in_rec": self.dburn.isChecked(),
+            "desktop_overlay": self.dover.isChecked(),
         }
 
     def new_key(self):

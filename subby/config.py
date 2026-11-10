@@ -112,6 +112,7 @@ DEFAULTS = {
     "source": "auto",                # "auto": kártya, ha van jele, különben a Windows asztal | "card" | "desktop"
     "desktop_output": 0,             # melyik monitor (DXGI-kimenet sorszáma az elsődleges videokártyán)
     "desktop_fps": 120,              # asztali rögzítés legfeljebb ennyi fps (a monitor frissítésénél nem több)
+    "desktop_overlay": False,        # asztali módban felirat-sáv a rögzített monitor alján is (a lejátszó mellett)
     "desktop_subs_in_rec": False,    # asztali módban a képernyőn lévő felirat a felvételre is kerüljön (beégetve)
     "update_check": True,            # indításkor szól, ha van új kiadás a GitHubon
 
@@ -132,7 +133,7 @@ LIVE_KEYS = {
     "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s",
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
     "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
-    "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec",
+    "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec", "desktop_overlay",
     "update_check", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
     "monitor_volume", "player_topmost", "screen_overlay", "launch_player", "autostart", "ffmpeg_path",
     # a fordító futás közben cserélhető (Engine.reload_translator)

@@ -16,7 +16,7 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya teljes jelét kezeli*
 - **Felirat a képen és a felvétel mellett.** Az élő felirat a képre kerül, és minden felvétel mellé `.srt` fájl készül (a VLC és az MPC magától betölti). Az **Export felirattal** gomb egy olyan változatot készít, amelybe a felirat bele van égetve.
 - **Capture kártya vagy Windows asztal.** A fejléc forrásgombjával válthatsz: capture kártya (Xbox, PlayStation, bármilyen HDMI) vagy egy monitor képe és a gép hangja (PC-s játék, program, videó).
   - **Automatikus mód:** a kártya, ha van jele; ha az Xbox ki van kapcsolva, a Windows asztal. Ha közben bekapcsolod az Xboxot, magától visszavált.
-  - Asztali módban a felirat a képernyő alján jelenik meg, minden ablak fölött (az egér átmegy rajta). Az rksubby saját ablaka nem kerül a felvételre.
+  - A felirat asztali módban is a program lejátszófelületén jelenik meg, így az ablakkal együtt mozog (pl. a második monitorra). Egy monitornál bekapcsolható a felirat-sáv a képernyő alján, a játék fölött (Beállítások › Kép és hang). Az rksubby saját ablaka nem kerül a felvételre.
   - Mért érték: 120 fps rögzítés és előnézet a 240 Hz-es monitorról, a felvétel 1920×1080 @ 120.
 - **Új, egységes felület.** Sötétkék téma rózsaszín–lila–kék kiemeléssel. Középen a kép, alatta a felvétel vezérlői, oldalt az élő felirat, az utolsó mondatok és a felvételek listája.
 - **Minden beállítás egy fogaskerék mögött.** Fordító (DeepL, Lokális AI, Google, nincs), DeepL-kulcs beillesztése és ellenőrzése, beszédfelismerő modell, felirat kinézete, felvételi mappa és minőség, capture kártya, hang.
@@ -91,7 +91,7 @@ Xbox ─HDMI─> capture kártya (DirectShow, egy csatorna: kép + hang)
                          └──> Silero VAD ─> faster-whisper (GPU) ─> DeepL / Lokális AI / Google ─> magyar felirat
 
 PC-s játék ─> Windows asztal: DXGI Desktop Duplication (kép, BGRA) + WASAPI loopback (a gép hangja)
-               └─ ugyanaz, mint fent; a felirat a képernyő alján, minden ablak fölött
+               └─ ugyanaz, mint fent; a felirat a lejátszón (kérésre a képernyő alján is)
 ```
 
 Asztali módban a kép a Windows dokumentált képernyő-rögzítőjéből jön, ugyanabból, amit az OBS „Kijelző rögzítése” használ. A játékba nem nyúl bele (nincs injektálás), így csalásvédelmet nem zavar. A színátalakítást (BGRA → YUV) az NVENC végzi a videokártyán.
@@ -128,7 +128,7 @@ RTX 3090, Ryzen 7 7800X3D, AVerMedia Live Gamer 4K (GC573), Xbox Series (2026. n
 
 **Nem jön hang / „NEM JÖN HANG”.** Szól a játék? A panel hangszintjelzőjének mozognia kell. Egy másik program is használhatja a kártyát.
 
-**Asztali módban nem látszik a felirat a játék fölött.** A kizárólagos teljes képernyős játékok mindent eltakarnak: állítsd a játékot **keret nélküli ablak** (borderless) módra. A felirat a felvétel mellé mentett `.srt`-ben ilyenkor is megvan.
+**Asztali módban nem látszik a felirat a játék fölött.** Kapcsold be a felirat-sávot (Beállítások › Kép és hang). A kizárólagos teljes képernyős játékok mindent eltakarnak: állítsd a játékot **keret nélküli ablak** (borderless) módra. A felirat a felvétel mellé mentett `.srt`-ben ilyenkor is megvan.
 
 **Lassú vagy hiányzó felirat.** Fogaskerék › Beszédfelismerés: GPU legyen kiválasztva. Az első indításkor a modell letöltése pár percig tart.
 
