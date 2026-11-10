@@ -15,7 +15,7 @@ PY = sys.executable
 BUILD = os.path.join(ROOT, "build")
 DIST = os.path.join(ROOT, "dist")
 SP = os.path.join(os.path.dirname(os.path.dirname(PY)), "Lib", "site-packages")
-VERSION = "3.0.0"
+VERSION = "3.0.1"
 
 
 def run(args, **kw):

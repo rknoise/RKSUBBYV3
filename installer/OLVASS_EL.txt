@@ -23,7 +23,8 @@ FORRÁS: CAPTURE KÁRTYA VAGY WINDOWS ASZTAL
     Ha közben bekapcsolod az Xboxot, magától visszavált a kártyára.
   • Capture kártya: Xbox, PlayStation, bármilyen HDMI-forrás (1080p / 1440p / 4K, 60 / 120 Hz).
   • Windows asztal: PC-s játék, program, videó – a kiválasztott monitor képe és a gép hangja.
-    A felirat a képernyő alján jelenik meg, minden ablak fölött (a játék fusson keret nélküli ablakban).
+    A felirat a program lejátszófelületén jelenik meg (az ablakkal együtt mozog). Egy monitornál
+    bekapcsolható a felirat-sáv a képernyő alján, a játék fölött (Beállítások › Kép és hang).
     Az rksubby saját ablaka nem kerül a felvételre.
 
 HASZNÁLAT
