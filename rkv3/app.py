@@ -236,6 +236,12 @@ class MainWindow(QMainWindow):
         self._busy = threading.Lock()
         self._stalled = False
         self._slow = 0
+        self._audio_alive_t = time.monotonic()   # mikor jött utoljára hallható hang a kártyáról
+        self._audio_reopen_t = 0.0               # mikor nyitottuk újra utoljára a néma hang miatt
+        self._want_live = False      # a felhasználó azt kéri, hogy fusson az élő feliratozás (felügyelő)
+        self._eng_down_t = 0.0       # mióta áll a feliratozó, noha futnia kellene
+        self._eng_fail_n = 0         # egymás utáni újraindítások száma (a várakozás nő)
+        self._eng_up_t = 0.0         # mióta fut folyamatosan
         self._last_try = 0.0
         self._sub_version = -1
         self._sub_key = None
@@ -832,6 +838,8 @@ class MainWindow(QMainWindow):
             ch = frame.layout.nb_channels
             n = frame.samples * ch
             data = np.frombuffer(frame.planes[0], np.int16, count=n)
+            if n and int(np.abs(data).max()) >= 18:      # ~ -65 dBFS fölött van hang
+                self._audio_alive_t = time.monotonic()
             if self.taps:
                 x = data.reshape(-1, ch).astype(np.float32) * (1 / 32768.0)
                 t = time.monotonic()
@@ -868,6 +876,7 @@ class MainWindow(QMainWindow):
                      self.state, self.fmt and (self.fmt["w"], self.fmt["h"], self.fmt["fps"]),
                      self.cap.fps_in if self.cap else 0, self.video.fps, self.rec.active, self.rec.dropped,
                      self.engine.state)
+        self._engine_watch()
         cap = self.cap
         if cap is None:
             if not self._busy.locked() and time.time() - self._last_try > 4:
@@ -907,12 +916,25 @@ class MainWindow(QMainWindow):
                 cap.signal_event.clear()
                 self.restart_pipeline()
                 return
+            # A kártya hangja elnémulhat (pl. az Xbox hangformátumot vált, a HDMI újraegyeztet), miközben a
+            # videó jön. Ilyenkor a hangforrás újranyitása segít – eddig csak a ki-be kapcsolás.
+            now_m = time.monotonic()
+            if (self.state == "run" and not stalled and not cap.nosignal and self.engine.state == "running"
+                    and self.engine.mode == "live" and not self.rec.active and now_m - self._audio_alive_t > 45
+                    and time.time() - self._audio_reopen_t > 180):
+                log.info("a kártya hangja %.0f mp óta néma, közben jön a videó -> a rögzítés újranyitása",
+                         now_m - self._audio_alive_t)
+                self._audio_reopen_t = time.time()
+                self._audio_alive_t = now_m
+                self.restart_pipeline()
+                return
             if self.state in ("run", "nosignal"):
                 self.state = "nosignal" if (cap.nosignal or stalled) else "run"
         # autostart feliratozó
         if (self.state == "run" and self.cfg.autostart and not self.engine_autostarted
                 and self.engine.state == "idle"):
             self.engine_autostarted = True
+            self._want_live = True
             self.engine.start("live")
         self._update_video_message()
         if self.rec.error:
@@ -921,6 +943,48 @@ class MainWindow(QMainWindow):
             if rs:
                 rs.close()
             QMessageBox.warning(self, "Felvétel", err)
+
+    def _engine_watch(self):
+        """Felügyelő: ha az élő feliratozó nem a felhasználó kérésére állt le (hiba, elhalt szál, a próba után),
+        pár másodperc múlva újraindítja. A várakozás hibasorozatnál nő (5 s -> 60 s), így nem pörög."""
+        eng = self.engine
+        if not self._want_live:
+            self._eng_down_t = 0.0
+            return
+        now = time.monotonic()
+        st = eng.state
+        if st in ("loading", "stopping") or (st == "running" and eng.mode == "test"):
+            self._eng_down_t = 0.0
+            return
+        if st == "running":
+            self._eng_down_t = 0.0
+            if not self._eng_up_t:
+                self._eng_up_t = now
+            if now - self._eng_up_t > 90:
+                self._eng_fail_n = 0              # stabil: a hibasorozat vége
+            if not eng.threads_alive():
+                log.warning("a feliratozó egyik szála leállt -> újraindítás")
+                self._eng_up_t = 0.0
+                self._eng_fail_n += 1
+                self.bus.notify.emit("A feliratozó egyik része leállt, újraindítom…")
+                threading.Thread(target=lambda: (eng.stop("Felügyelő: egy szál leállt."), time.sleep(0.5)),
+                                 daemon=True, name="eng-recover").start()
+            return
+        # idle / error, miközben futnia kellene
+        self._eng_up_t = 0.0
+        if not self._eng_down_t:
+            self._eng_down_t = now
+            return
+        wait = min(5 * 2 ** self._eng_fail_n, 60)
+        if now - self._eng_down_t < wait:
+            return
+        self._eng_down_t = 0.0
+        self._eng_fail_n += 1
+        why = eng.error or eng.finished or "ismeretlen ok"
+        log.warning("a feliratozó áll (%s) -> újraindítás (%d. próba)", why, self._eng_fail_n)
+        ok, msg = eng.start("live")
+        if ok:
+            self.bus.notify.emit("A feliratozó újraindult.")
 
     def _update_video_message(self):
         msgs = {
@@ -1129,8 +1193,11 @@ class MainWindow(QMainWindow):
 
     def toggle_engine(self):
         if self.engine.state in ("running", "loading"):
+            self._want_live = False          # szándékos leállítás: a felügyelő ne indítsa újra
             threading.Thread(target=self.engine.stop, daemon=True).start()
         else:
+            self._want_live = True
+            self._eng_fail_n = 0
             ok, msg = self.engine.start("live")
             if not ok:
                 self.statusBar().showMessage(msg, 6000)
@@ -1432,6 +1499,7 @@ class MainWindow(QMainWindow):
                 self.rec.stop()
                 if self.rec_srt:
                     self.rec_srt.close()
+            self._want_live = False
             self.engine.stop("Kilépés.")
             if self.cap:
                 self.cap.stop()

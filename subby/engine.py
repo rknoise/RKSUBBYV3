@@ -22,10 +22,13 @@ def display_loop(display_q, sink, translator, stop, timeout_s):
             hu, tr_ms = item.future.result(timeout=timeout_s + 2)
         except Exception:
             hu, tr_ms = None, -1.0
-        latency = (time.monotonic() - item.t_speech_end) * 1000
-        if hu:
-            translator.note_shown(item.en)
-        sink.final(hu or item.en, item.en, item.asr_ms, tr_ms, latency)
+        try:
+            latency = (time.monotonic() - item.t_speech_end) * 1000
+            if hu:
+                translator.note_shown(item.en)
+            sink.final(hu or item.en, item.en, item.asr_ms, tr_ms, latency)
+        except Exception as ex:   # egy hibás sor ne állítsa le a kijelzőszálat (különben néma marad a felirat)
+            print(f"[hiba a kijelzésben] {ex!r}")
 
 
 class Engine:
@@ -97,6 +100,13 @@ class Engine:
             self.state, self.finished = "idle", reason
         self.log(reason)
         return True
+
+    def threads_alive(self):
+        """False, ha futó állapotban valamelyik munkaszál (ASR, kijelző) elhalt."""
+        with self._lock:
+            if self.state != "running":
+                return True
+            return all(t.is_alive() for t in self._threads)
 
     def status(self):
         with self._lock:
