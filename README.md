@@ -2,7 +2,7 @@
 
 # rksubby V3 – PC/Xbox/PS5-rögzítő élő magyar felirattal
 
-> **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) — and now for PC games and apps on the Windows desktop too — with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. A source switch selects the capture card or a Windows monitor (DXGI Desktop Duplication + WASAPI loopback audio; subtitles appear in a click-through on-screen bar), and an automatic mode falls back to the desktop when the console is off. Everything is configured behind a single gear button. The all-in-one installer contains everything, including the CUDA libraries and the speech model; only the capture card driver is not included.
+> **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) — and now for PC games and apps on the Windows desktop too — with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. A source switch selects the capture card or a Windows monitor (DXGI Desktop Duplication + WASAPI loopback audio; subtitles appear in a click-through on-screen bar), and an automatic mode falls back to the desktop when the console is off. **New in 3.2:** a built-in **game-subtitle reader** — it reads the English subtitles the game itself draws (OCR, on the CPU) and translates them as soon as they appear on screen; speech recognition stays on as the secondary source and is skipped wherever an on-screen subtitle already covers the speech. The live subtitler also got a supervisor that restarts it if it ever stops and re-opens a silent capture-card audio input. Everything is configured behind a single gear button. The all-in-one installer contains everything, including the CUDA libraries and the speech model; only the capture card driver is not included.
 
 Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes jelét kezeli**. Mutatja pl az Xbox, Playstation képét 120 Hz-en,  felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
@@ -11,6 +11,10 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes j
 
 ## Újdonságok a V3-ban
 
+- **Játékfelirat-olvasó (új a 3.2-ben).** A program a játék *saját angol feliratát* is leolvassa a képről (OCR), és azonnal fordítja: a magyar felirat a játék feliratával egy időben jelenik meg, a szöveg pontosabb, mint a hallott, és nem terheli a GPU-t.
+  - **Az angol felirat az elsődleges, a hangfelismerés másodlagos.** Ahol a képen felirat látszik, a hangfelismerés kihagyja a lefedett beszédet (így nincs dupla felirat, és a GPU szabad marad). Ahol nincs felirat a képen – a játék nem ír ki, kikapcsolták, vagy az OCR nem fut –, minden megy tovább a hangból, mint eddig.
+  - Egyszer kijelölöd a képen, hol jelenik meg a felirat (játékprofilonként megjegyzi), a **Próba-olvasás** pedig azonnal megmutatja, mit lát. A magyar felirat addig marad kint, amíg az angol látszik, és a felvétel mellé mentett `.srt`-be a felirat tényleges megjelenési ideje kerül. Részletek lent, a „Felirat-olvasó” fejezetben.
+- **Tartós működés (új a 3.2-ben).** Egy felügyelő figyeli az élő feliratozót: ha bármiért leáll (hiba, elhalt munkaszál), pár másodperc múlva magától újraindítja (hibasorozatnál egyre ritkábban, így nem pörög); ha a kártya hangja elnémul, miközben jön a kép (HDMI-újraegyeztetés), újranyitja a hangforrást; a kijelzőszál egy hibás sor miatt sem áll le; a lokális fordítómodell nem ürül ki a memóriából (`keep_alive`).
 - **Valódi 1080p120 előnézet.** A kép közvetlenül a videokártyán jelenik meg (Direct3D 11), a színátalakítás és a skálázás is ott történik. Mért érték: 119,9 fps a kártyáról és az előnézetben is, a processzor terhelése felvétel közben ~2%.
 - **Felvétel a jelhez igazítva, beállítás nélkül.** 1080p120 jelből 1080p120 fájl, 4K60-ból 4K60. A program indításkor és jelváltáskor felismeri a felbontást és a képkockasebességet. NVIDIA NVENC kódolás (HEVC vagy H.264), AAC hang a kártyáról. Áramszünet vagy összeomlás után is lejátszható MP4.
 - **Felirat a képen és a felvétel mellett.** Az élő felirat a képre kerül, és minden felvétel mellé `.srt` fájl készül (a VLC és az MPC magától betölti). Az **Export felirattal** gomb egy olyan változatot készít, amelybe a felirat bele van égetve.
@@ -48,6 +52,7 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
 
 | | |
 |---|---|
+| **F6** | felirat-olvasó (OCR) be/ki |
 | **F7** | cutscene-figyelő be/ki |
 | **F9** | felvétel indítása / leállítása |
 | **F10** | szünet / folytatás (a felvétel és az időzítő is megáll) |
@@ -78,6 +83,26 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
 
 **Mire figyelj:** a HUD máskor is eltűnik (szünetmenü, térkép, töltőképernyő, halál, fotómód), ezeket a program az állókép és a fekete kép kiszűrésével, illetve a legrövidebb hosszal próbálja kihagyni, de nem tévedhetetlen. Ha egy játékban a HUD az átvezetők alatt is kint marad, ott nem fog indulni. Olyan elemet jelölj, ami játék közben végig látszik, és nem halványul el magától.
 
+## Felirat-olvasó
+
+A legtöbb játék kiírja a beszélők szövegét. A felirat-olvasó ezt az **angol feliratot** olvassa le a képről (OCR), és fordítja magyarra, ahelyett, hogy a hangból találná ki. Gyorsabb (a felirat megjelenésekor már megvan a szöveg, nem kell megvárni a mondat végét), pontosabb (a játék pontos szövege, nevekkel), és a processzoron fut, így a GPU a többi dologra marad.
+
+**Beállítás (egyszer, játékprofilonként):**
+1. Játék közben, amikor egy felirat látszik a képen, nyomd meg a vezérlősáv **kijelölő** gombját (a *Felirat-OCR* mellett). A kép kimerevedik.
+2. **Húzz egy keretet a feliratsáv köré.** Szűk keret a legjobb: csak a beszélők szövege legyen benne, a HUD feliratai (célkitűzés, súgó, pontszám) ne.
+3. **Próba-olvasás:** megmutatja, mit olvas le a program a keretből. Ha jó, **Mentés és olvasás**. Innentől a *Felirat-OCR* gomb (F6) be- és kikapcsolja.
+
+**Hogyan dolgozik együtt a hangfelismeréssel:**
+- Ha a képen van angol felirat, **az az elsődleges**. A hangfelismerés **másodlagos**: a felirattal lefedett beszédet kihagyja (nem is fut le), így nincs dupla felirat és nincs fölösleges GPU-munka.
+- Ahol **nincs felirat** (a játék nem ír ki egy járókelőt, kikapcsolták a feliratot, vagy nincs kijelölt hely), a hangfelismerés mindent maga csinál, mint eddig.
+- Ha az OCR **nem fut vagy elakad** (hiányzó csomag, nincs kép), a hangfelismerés magától átveszi.
+- Ha mégis ugyanaz hallatszik és látszik, a később érkező kimarad. A leolvasott mondat a hangfelismerés és a fordítás előző-mondat kontextusába is bekerül.
+- Beállítások › Felirat-olvasó: **Automatikus** (ajánlott) · **Csak a képernyőfelirat** (a hangot nem fordítja) · **Kikapcsolva** (minden a hangból).
+
+**Amit a program magától kezel:** a félig látszó (halványodó) szöveget nem fordítja le, csak a legalább két egymás utáni olvasásban stabil sort; a kisebb olvasási hibák nem indítanak új sort; az ennél a „Állandó szöveg” időnél tovább változatlanul látszó szöveget (HUD) beszédnek sem veszi, és nem némítja miatta a hangfelismerést; a hangleírásokat (`[motorzaj]`) és a számokból álló HUD-t kihagyja. A magyar felirat addig marad kint, amíg az angol látszik (+ utóidő), és a felvétel mellé mentett `.srt`-ben a felirat tényleges megjelenési ideje szerepel.
+
+**Mire figyelj:** az OCR csak azt tudja lefordítani, amit a játék kiír; a stilizált, nagyon díszes betűk vagy a nagyon alacsony kontraszt ronthat az olvasáson. A játékonkénti jó eredményhez a keret pontos kijelölése a legfontosabb. Az OCR-csomag (rapidocr-onnxruntime, ~15 MB, a modellek benne vannak) része a telepítőnek; fejlesztői módban a `requirements.txt` tartalmazza.
+
 ## Beállítások (fogaskerék)
 
 - **Fordítás:** DeepL (a legjobb minőség, kulcs kell), **Lokális AI** (Ollama a saját gépeden, semmi nem megy ki), Google (ingyenes, kulcs nélkül) vagy fordítás nélkül (angol felirat).
@@ -86,6 +111,7 @@ Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés
   - Tartalék fordító: ha a választott nem elérhető, a felirat akkor is magyar marad.
 - **Beszédfelismerés:** modell (distil-large-v3 az ajánlott, a large-v3-turbo pontosabb), GPU vagy processzor, játékprofil (GTA V, GTA VI, RDR2, általános), angol előnézet, a mondat végét jelző csend hossza, automatikus indulás.
 - **Felirat:** betűméret, szín, háttérdoboz, sorok száma, pozíció. OBS böngészőforrás-felirat is kérhető: `http://127.0.0.1:8765/`.
+- **Felirat-olvasó:** működés (automatikus / csak képernyőfelirat / kikapcsolva), olvasási sebesség, legkisebb biztonság, a magyar felirat utóideje, az „állandó szöveg” ideje.
 - **Felvétel:** mappa (alapértelmezett: `Videók\rksubby`), minőség (normál, magas, maximális), kódolás (HEVC vagy H.264), SRT mentése, a cutscene-figyelő előfelvétele és legrövidebb jelenete.
 - **Kép és hang:** forrás (automatikus, capture kártya, Windows asztal), a kártya és a monitor kiválasztása, asztali fps (60 vagy 120), a képernyőn lévő felirat a felvételre is kerüljön-e, a játék hangja szóljon-e a gépen.
 
@@ -108,8 +134,9 @@ Xbox ─HDMI─> capture kártya (DirectShow, egy csatorna: kép + hang)
                │
                ├─ kép (NV12) ──> előnézet: SDL2 + Direct3D 11 a Qt-ablakban ──> felirat a képen
                ├─ kép + hang ──> NVENC (HEVC/H.264) + AAC ──> .mp4  (+ .srt a felirattal)
-               └─ hang ──┬──> hangszóró
-                         └──> Silero VAD ─> faster-whisper (GPU) ─> DeepL / Lokális AI / Google ─> magyar felirat
+               ├─ kép (a kijelölt feliratsáv, másodpercenként ~4×) ─> OCR (CPU) ─> felirat-sorok ─┐
+               └─ hang ──┬──> hangszóró                                                              ├─> DeepL / Lokális AI / Google ─> magyar felirat
+                         └──> Silero VAD ─> faster-whisper (GPU) ─ kihagyja, amit a képernyőfelirat lefed ─┘
 
 PC-s játék ─> Windows asztal: DXGI Desktop Duplication (kép, BGRA) + WASAPI loopback (a gép hangja)
                └─ ugyanaz, mint fent; a felirat a lejátszón (kérésre a képernyő alján is)
@@ -151,6 +178,8 @@ RTX 3090, Ryzen 7 7800X3D, AVerMedia Live Gamer 4K (GC573), Xbox Series (2026. n
 
 **Asztali módban nem látszik a felirat a játék fölött.** Kapcsold be a felirat-sávot (Beállítások › Kép és hang). A kizárólagos teljes képernyős játékok mindent eltakarnak: állítsd a játékot **keret nélküli ablak** (borderless) módra. A felirat a felvétel mellé mentett `.srt`-ben ilyenkor is megvan.
 
+**A felirat-olvasó nem olvas.** A vezérlősávon a „Felirat-OCR” jelzés mutatja az állapotot. „Jelöld ki a helyét”: a kijelölő gombbal jelöld be a képen a feliratsávot. „Hiba”: vidd az egeret a jelzés fölé; ha az OCR-csomag hiányzik, fejlesztői módban: `python -m pip install rapidocr-onnxruntime`. Ha értelmetlen szöveget fordít, szűkítsd a keretet, vagy emeld a legkisebb biztonságot (Beállítások › Felirat-olvasó).
+
 **Lassú vagy hiányzó felirat.** Fogaskerék › Beszédfelismerés: GPU legyen kiválasztva. Az első indításkor a modell letöltése pár percig tart.
 
 **DeepL-hibák.** 403: rossz a kulcs. 456: elfogyott a havi keret, ilyenkor a tartalék fordító (Lokális AI vagy Google) dolgozik.
@@ -176,11 +205,13 @@ rkv3/                 V3: felület és rögzítő
   desktop.py          Windows asztal mint forrás (DXGI + WASAPI loopback)
   cutscene.py         cutscene-figyelő: HUD-felismerés, előpufferes kódoló, vezérlés
   hudmark.py          a HUD megjelölése a kimerevített képen
+  subregion.py        a játék feliratának helye: kijelölés a képen + próba-olvasás
   video.py            GPU-s előnézet (SDL2/D3D11 a Qt-ablakban), felirat rajzolása
   settings.py         beállítások (fogaskerék)
   export.py           feliratos (beégetett) export
   theme.py, icons.py  kinézet
 subby/                a feliratozó motor (V2-ből): VAD, faster-whisper, fordítók, feliratállapot, OBS-szerver
+  subocr.py           felirat-olvasó: OCR, sorkövetés, összehangolás a hangfelismeréssel (Fusion)
 profiles/             játékprofilok (nevek, glosszárium)
 installer/            Inno Setup szkript, OLVASS_EL.txt
 tools/                build_v3.py, make_assets.py
@@ -188,9 +219,9 @@ tools/                build_v3.py, make_assets.py
 
 ## Adatvédelem
 
-A beszédfelismerés helyben fut. Csak a felismert angol szöveg megy a fordítóhoz (DeepL vagy Google). Lokális AI esetén semmi nem hagyja el a gépet. A `sub_log.tsv` a felhasználói mappában helyben tárolja a felismert mondatokat; a beállításokban kikapcsolható.
+A beszédfelismerés és a felirat-olvasó (OCR) helyben fut, a kép nem hagyja el a gépet. Csak a felismert angol szöveg megy a fordítóhoz (DeepL vagy Google). Lokális AI esetén semmi nem hagyja el a gépet. A `sub_log.tsv` a felhasználói mappában helyben tárolja a felismert mondatokat; a beállításokban kikapcsolható.
 
 ## Felhasznált projektek
 
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper) és [CTranslate2](https://github.com/OpenNMT/CTranslate2) (MIT), [Whisper](https://github.com/openai/whisper) / [distil-whisper](https://github.com/huggingface/distil-whisper) modellek, [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), [FFmpeg](https://ffmpeg.org) és [PyAV](https://github.com/PyAV-Org/PyAV) (LGPL), [SDL2](https://libsdl.org) (zlib), [DXcam](https://github.com/ra1nty/DXcam) (MIT), [PyAudioWPatch](https://github.com/s0d3s/PyAudioWPatch) (MIT), [Qt for Python / PySide6](https://www.qt.io/qt-for-python) (LGPL), NVIDIA CUDA-könyvtárak (cuBLAS, cuDNN – NVIDIA-licenc), [DeepL API](https://www.deepl.com/pro-api), [Ollama](https://ollama.com), [Inno Setup](https://jrsoftware.org/isinfo.php).
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) és [CTranslate2](https://github.com/OpenNMT/CTranslate2) (MIT), [Whisper](https://github.com/openai/whisper) / [distil-whisper](https://github.com/huggingface/distil-whisper) modellek, [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), [FFmpeg](https://ffmpeg.org) és [PyAV](https://github.com/PyAV-Org/PyAV) (LGPL), [SDL2](https://libsdl.org) (zlib), [DXcam](https://github.com/ra1nty/DXcam) (MIT), [PyAudioWPatch](https://github.com/s0d3s/PyAudioWPatch) (MIT), [Qt for Python / PySide6](https://www.qt.io/qt-for-python) (LGPL), [RapidOCR](https://github.com/RapidAI/RapidOCR) és a PP-OCR modellek (Apache-2.0), [ONNX Runtime](https://onnxruntime.ai) (MIT), [OpenCV](https://opencv.org) (Apache-2.0), NVIDIA CUDA-könyvtárak (cuBLAS, cuDNN – NVIDIA-licenc), [DeepL API](https://www.deepl.com/pro-api), [Ollama](https://ollama.com), [Inno Setup](https://jrsoftware.org/isinfo.php).
 A `teszt_angol.wav` J. F. Kennedy 1961-es beiktatási beszédéből származik (közkincs). Az Xbox a Microsoft védjegye; az rksubby független, nem hivatalos program.
