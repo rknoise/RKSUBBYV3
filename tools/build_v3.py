@@ -15,7 +15,7 @@ PY = sys.executable
 BUILD = os.path.join(ROOT, "build")
 DIST = os.path.join(ROOT, "dist")
 SP = os.path.join(os.path.dirname(os.path.dirname(PY)), "Lib", "site-packages")
-VERSION = "3.1.0"
+VERSION = "3.2"
 
 
 def run(args, **kw):
@@ -52,6 +52,7 @@ def build_app():
             "--collect-all", "sdl2dll", "--collect-all", "av", "--collect-all", "faster_whisper",
             "--collect-all", "ctranslate2", "--collect-binaries", "onnxruntime", "--collect-all", "dxcam",
             "--collect-all", "pyaudiowpatch", "--collect-all", "comtypes",
+            "--collect-all", "rapidocr_onnxruntime",     # felirat-olvasó: OCR-modellek + config.yaml a csomagban
             "--hidden-import", "sdl2", "--hidden-import", "PySide6.QtNetwork",
             "--exclude-module", "PyQt5", "--exclude-module", "tkinter", "--exclude-module", "matplotlib",
             "--exclude-module", "torch", "--exclude-module", "IPython"]

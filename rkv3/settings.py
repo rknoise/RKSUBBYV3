@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Beállítások (a fogaskerék mögött): fordítás, beszédfelismerés, felirat, felvétel, kép és hang, névjegy."""
+"""Beállítások (a fogaskerék mögött): fordítás, beszédfelismerés, felirat, felirat-olvasó, felvétel, kép és hang, névjegy."""
 from __future__ import annotations
 
 import os
@@ -92,6 +92,7 @@ class SettingsDialog(QDialog):
         for name, ic, builder in (("Fordítás", "translate", self._page_translate),
                                   ("Beszédfelismerés", "mic", self._page_asr),
                                   ("Felirat", "cc", self._page_subs),
+                                  ("Felirat-olvasó", "eye", self._page_ocr),
                                   ("Felvétel", "record", self._page_rec),
                                   ("Kép és hang", "video", lambda: self._page_av(devices, outputs or [])),
                                   ("Névjegy", "info", self._page_about)):
@@ -297,6 +298,60 @@ class SettingsDialog(QDialog):
         form.addRow("", _hint("Ha OBS-ben is szeretnéd a feliratot: új Böngészőforrás, ez a webcím, 1920×1080."))
         return form
 
+    def _page_ocr(self):
+        from subby import subocr
+
+        c = self.cfg
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        form.addRow("", _hint(
+            "A játék <b>saját angol feliratát</b> olvassa le a képről (OCR), és magyarra fordítja: a felirat "
+            "megjelenésével egy időben indul, a szöveg pontosabb, mint a hallott, és nem terheli a GPU-t. "
+            "Ha van felirat a képen, az az elsődleges, a hangfelismerés másodlagos: a felirattal lefedett "
+            "beszédet kihagyja. Ahol nincs felirat (vagy a játék nem ír ki), a hangból megy tovább."))
+        self.ocr_mode = QComboBox()
+        for k, label in (("auto", "Automatikus – a felirat az elsődleges, a hang kiegészít (ajánlott)"),
+                         ("ocr_only", "Csak a képernyőfelirat – a hangot nem fordítja"),
+                         ("off", "Kikapcsolva – minden a hangból megy")):
+            self.ocr_mode.addItem(label, k)
+        self.ocr_mode.setCurrentIndex(max(0, self.ocr_mode.findData(c.subocr_mode)))
+        form.addRow("Működés:", self.ocr_mode)
+        roi = subocr.load_roi(c.profile)
+        form.addRow("Felirat helye:", _hint(
+            ("<span style='color:#38d27a'>ki van jelölve</span> ehhez a játékprofilhoz." if roi else
+             "<span style='color:#ffc53d'>még nincs kijelölve</span> – addig a felirat-olvasó nem fut.")
+            + " Kijelölés: vezérlősáv › a „kijelölő” gomb a Felirat-OCR mellett (képnek kell lennie, és a "
+              "felirat látszódjon rajta)."))
+        self.ocr_fps = QSpinBox()
+        self.ocr_fps.setRange(1, 10)
+        self.ocr_fps.setSuffix(" olvasás/mp")
+        self.ocr_fps.setValue(int(c.subocr_fps))
+        form.addRow("Olvasási sebesség:", self.ocr_fps)
+        form.addRow("", _hint("Több = gyorsabban jelenik meg a felirat, de jobban terheli a processzort "
+                              "(4 elég; gyenge gépen a program magától lassabban olvas)."))
+        self.ocr_conf = QSpinBox()
+        self.ocr_conf.setRange(30, 95)
+        self.ocr_conf.setSuffix(" %")
+        self.ocr_conf.setValue(int(round(float(c.subocr_min_conf) * 100)))
+        form.addRow("Legkisebb biztonság:", self.ocr_conf)
+        form.addRow("", _hint("Az ennél bizonytalanabb olvasatot eldobja (zaj, félig látszó szöveg). "
+                              "Ha sok felirat kimarad, vedd lejjebb; ha értelmetlen szöveget lát, fel."))
+        self.ocr_linger = QSpinBox()
+        self.ocr_linger.setRange(0, 3000)
+        self.ocr_linger.setSingleStep(100)
+        self.ocr_linger.setSuffix(" ms")
+        self.ocr_linger.setValue(int(round(float(c.subocr_linger_s) * 1000)))
+        form.addRow("Magyar felirat utóidő:", self.ocr_linger)
+        form.addRow("", _hint("Ennyivel marad kint a magyar felirat azután, hogy az angol eltűnt a képről."))
+        self.ocr_static = QSpinBox()
+        self.ocr_static.setRange(6, 120)
+        self.ocr_static.setSuffix(" mp")
+        self.ocr_static.setValue(int(round(float(c.subocr_static_s))))
+        form.addRow("Állandó szöveg:", self.ocr_static)
+        form.addRow("", _hint("Ami ennél tovább változatlanul látszik a felirat helyén (pl. HUD-felirat, "
+                              "célkitűzés), azt nem beszédnek veszi: nem fordítja, és nem némítja a hangfelismerést."))
+        return form
+
     def _page_rec(self):
         c = self.cfg
         form = QFormLayout()
@@ -480,6 +535,9 @@ class SettingsDialog(QDialog):
             "autostart": self.autostart.isChecked(),
             "subs_on_video": self.on_video.isChecked(), "style": style, "max_lines": self.max_lines.value(),
             "obs_server": self.obs.isChecked(),
+            "subocr_mode": self.ocr_mode.currentData(), "subocr_fps": self.ocr_fps.value(),
+            "subocr_min_conf": self.ocr_conf.value() / 100.0, "subocr_linger_s": self.ocr_linger.value() / 1000.0,
+            "subocr_static_s": self.ocr_static.value(),
             "rec_dir": self.rec_dir.text().strip(), "rec_quality": self.quality.currentData(),
             "rec_codec": self.codec.currentData(), "rec_srt": self.rec_srt.isChecked(),
             "cut_preroll_s": self.cut_pre.value(), "cut_min_s": self.cut_min.value(),

@@ -3,6 +3,7 @@
 
 import collections
 import queue
+import threading
 import time
 from dataclasses import dataclass
 
@@ -60,6 +61,7 @@ class FinalItem:
     future: object
     t_speech_end: float
     asr_ms: float
+    ref: object = None       # képernyőfelirat-sor (subocr.LineRef), ha a szöveg nem a hangból jött
 
 
 def _db(power):
@@ -67,9 +69,10 @@ def _db(power):
 
 
 class LiveSubtitler:
-    def __init__(self, cfg, asr, vad, translator, sink, display_q, log=print, debug=False):
+    def __init__(self, cfg, asr, vad, translator, sink, display_q, log=print, debug=False, fusion=None):
         c = cfg
         self.cfg = cfg
+        self.fusion = fusion         # subocr.Fusion: a képernyőfelirat (OCR) az elsődleges, a hang másodlagos
         self.asr, self.vad, self.translator = asr, vad, translator
         self.sink, self.display_q = sink, display_q
         self.log, self.debug = log, debug
@@ -102,6 +105,7 @@ class LiveSubtitler:
         self.prev_words = []         # az előző előnézet szavai (egyezésvizsgálathoz)
         self.last_partial_t = 0.0
         self.context = collections.deque(maxlen=max(1, c.context_lines))
+        self._ctx_lock = threading.Lock()    # a kontextust a hang- és az OCR-szál is írja
         self.last_final_t = 0.0
         self.last_committed = ""
         self.cut_kind = None
@@ -119,6 +123,35 @@ class LiveSubtitler:
     def dbg(self, *a):
         if self.debug:
             self.log("[debug] " + " ".join(str(x) for x in a))
+
+    # ---------------------------------------------------------------- kontextus, OCR-összehangolás
+    def context_list(self):
+        with self._ctx_lock:
+            return list(self.context)
+
+    def _ctx_add(self, text):
+        with self._ctx_lock:
+            self.context.append(text)
+
+    def note_external(self, text):
+        """A képernyőfelirat-olvasótól kapott mondat az előző mondatok közé kerül: a felismerésnek (prompt) és a
+        fordításnak is kontextus, és a jelenet kontextusát sem törli ki a „csend” miatt."""
+        text = clean_spaces(text or "")
+        if norm_text(text):
+            self._ctx_add(text)
+            self.last_final_t = time.monotonic()
+
+    def _covered(self, u, cut=None):
+        """Lefedi-e a képernyőn látszó felirat ezt a beszédszakaszt? Ha igen, a hangfelismerés kihagyja
+        (nem foglalja a GPU-t, és nem jelenik meg kétszer)."""
+        f = self.fusion
+        if f is None or u is None or not u.times:
+            return False
+        try:
+            i = cut if cut is not None else (u.last_speech if u.last_speech >= 0 else len(u.times) - 1)
+            return f.asr_blocked(u.times[0], u.times[min(max(i, 0), len(u.times) - 1)])
+        except Exception:
+            return False
 
     # ---------------------------------------------------------------- fő ciklus
     def run(self, audio_q, stop):
@@ -224,7 +257,8 @@ class LiveSubtitler:
 
     def _start_utterance(self):
         if self.last_final_t and time.monotonic() - self.last_final_t > self.context_reset_s:
-            self.context.clear()
+            with self._ctx_lock:
+                self.context.clear()
             self.last_committed = ""
         self.utt = Utterance(self.vad_on, self.vad_off)
         for f, p, t in self.preroll:
@@ -244,9 +278,10 @@ class LiveSubtitler:
 
     # ------------------------------------------------------------- felismerés
     def _prompt(self):
-        if not self.use_prompt or not self.context:
+        ctx = self.context_list() if self.use_prompt else None
+        if not ctx:
             return None
-        return " ".join(self.context)[-220:]
+        return " ".join(ctx)[-220:]
 
     def _clean(self, res):
         if looks_like_hallucination(res):
@@ -267,6 +302,10 @@ class LiveSubtitler:
         u = self.utt
         if u.speech_frames < self.min_utt_frames:
             return
+        if self._covered(u):
+            self.prefinal = (u.last_speech, "", 0.0)
+            self.dbg("kihagyva: a képernyőfelirat lefedi")
+            return
         res = self.asr.transcribe(self._speech_audio(u), beam_size=self.final_beam, prompt=self._prompt())
         text = self._clean(res)
         if u.continuation:
@@ -275,7 +314,7 @@ class LiveSubtitler:
         if text:
             self.sink.partial(text)
             if self.spec_translate:
-                self.translator.submit(text, list(self.context), kind="spec")
+                self.translator.submit(text, self.context_list(), kind="spec")
         self.dbg(f"előzetes ({res.ms:.0f} ms): {text!r}")
 
     def _finalize_silence(self):
@@ -287,6 +326,9 @@ class LiveSubtitler:
             return
         if self.prefinal and self.prefinal[0] == u.last_speech:
             text, asr_ms = self.prefinal[1], self.prefinal[2]   # az előzetes eredmény még érvényes
+        elif self._covered(u):
+            text, asr_ms = "", 0.0
+            self.dbg("kihagyva: a képernyőfelirat lefedi")
         else:
             res = self.asr.transcribe(self._speech_audio(u), beam_size=self.final_beam, prompt=self._prompt())
             text, asr_ms = self._clean(res), res.ms
@@ -301,12 +343,16 @@ class LiveSubtitler:
         n = len(u)
         lo, hi = max(1, n - ms2frames(3000)), max(2, n - ms2frames(200))
         cut = lo + int(np.argmin(u.probs[lo:hi]))
-        res = self.asr.transcribe(u.audio(cut + 1), beam_size=self.final_beam, prompt=self._prompt())
-        text = self._clean(res)
-        if u.continuation:
-            text = self._strip(text)
+        if self._covered(u, cut):
+            text, asr_ms = "", 0.0
+            self.dbg("kihagyva: a képernyőfelirat lefedi")
+        else:
+            res = self.asr.transcribe(u.audio(cut + 1), beam_size=self.final_beam, prompt=self._prompt())
+            text, asr_ms = self._clean(res), res.ms
+            if u.continuation:
+                text = self._strip(text)
         self.dbg(f"szakasz vágása (max hossz) {(cut + 1) * FRAME_S:.2f} s-nál")
-        self._emit_final(text, u.times[cut], res.ms)
+        self._emit_final(text, u.times[cut], asr_ms)
         self.utt = u.tail_from(cut + 1)
         self.cut_kind = "max"          # kényszervágás: egy szó átlóghat, az ismétlést ki kell szűrni
         self.prefinal = None
@@ -315,6 +361,8 @@ class LiveSubtitler:
     def _maybe_partial(self):
         u = self.utt
         if u is None or self.partial_interval <= 0 or u.silence_run > 0:
+            return
+        if self._covered(u):         # a képernyőfelirat már megvan: nincs mit kitalálni a hangból
             return
         now = time.monotonic()
         if now - self.last_partial_t < self.partial_interval or u.speech_frames * FRAME_S < 0.5:
@@ -353,7 +401,7 @@ class LiveSubtitler:
                 if u.continuation:
                     head = self._strip(head)
                 if norm_text(head):
-                    self.translator.submit(head, list(self.context), kind="spec")
+                    self.translator.submit(head, self.context_list(), kind="spec")
             self.prev_words = [norm_word(w.word) for w in res.words]
         else:
             self.prev_words = []
@@ -396,9 +444,22 @@ class LiveSubtitler:
         text = clean_spaces(text or "")
         if not norm_text(text):
             return
-        fut = self.translator.submit(text, list(self.context), kind="final")
-        self.context.append(text)
+        f = self.fusion
+        if f is not None:
+            try:
+                dup = f.asr_duplicate(text, time.monotonic())
+            except Exception:
+                dup = False
+            if dup:                  # ugyanezt a képernyőfelirat már megmutatta
+                self.dbg(f"kihagyva: a képernyőfelirat már megmutatta: {text!r}")
+                self.last_committed = text
+                self.last_final_t = time.monotonic()
+                return
+        fut = self.translator.submit(text, self.context_list(), kind="final")
+        self._ctx_add(text)
         self.last_committed = text
         self.last_final_t = time.monotonic()
         self.st_finals += 1
+        if f is not None:
+            f.note_asr(text)
         self.display_q.put(FinalItem(text, fut, t_speech_end, asr_ms))

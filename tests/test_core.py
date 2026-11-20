@@ -383,3 +383,55 @@ class CutsceneTests(unittest.TestCase):
 
         m2, rej2 = C.HudModel.from_frame("t", av.VideoFrame.from_ndarray(flat, format="nv12"), [rect])
         self.assertEqual((len(m2.regions), rej2), (0, [0]))
+
+
+class EngineRobustnessTests(unittest.TestCase):
+    def test_display_loop_survives_sink_error(self):
+        """Ha a kijelző egy sornál hibázik, a szál éljen tovább (különben néma marad a felirat)."""
+        import types
+        from concurrent.futures import Future
+        from subby.engine import display_loop
+
+        shown = []
+
+        class Sink:
+            def final(self, hu, en, asr_ms, tr_ms, latency):
+                if en == "boom":
+                    raise RuntimeError("sink hiba")
+                shown.append(en)
+
+        class Tr:
+            def note_shown(self, en):
+                pass
+
+        def item(en):
+            f = Future()
+            f.set_result(("szia", 1.0))
+            return types.SimpleNamespace(future=f, en=en, t_speech_end=time.monotonic(), asr_ms=1.0)
+
+        q, stop = queue.Queue(), threading.Event()
+        for en in ("boom", "ok1", "ok2"):
+            q.put(item(en))
+        t = threading.Thread(target=display_loop, args=(q, Sink(), Tr(), stop, 1.0), daemon=True)
+        t.start()
+        for _ in range(50):
+            if len(shown) == 2:
+                break
+            time.sleep(0.1)
+        stop.set()
+        t.join(2)
+        self.assertEqual(shown, ["ok1", "ok2"])
+
+    def test_threads_alive(self):
+        from subby.engine import Engine
+
+        eng = Engine(make_cfg(), sink=None, log=lambda *_: None)
+        self.assertTrue(eng.threads_alive())              # nem fut: nincs mit figyelni
+        ev = threading.Event()
+        t = threading.Thread(target=ev.wait, daemon=True)
+        t.start()
+        eng.state, eng._threads = "running", [t]
+        self.assertTrue(eng.threads_alive())
+        ev.set()
+        t.join(2)
+        self.assertFalse(eng.threads_alive())             # elhalt szál észrevehető

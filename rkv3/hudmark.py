@@ -17,9 +17,10 @@ def frame_to_qimage(frame) -> QImage:
 
 
 class _Canvas(QWidget):
-    def __init__(self, img: QImage, rects):
+    def __init__(self, img: QImage, rects, max_rects: int = MAX_RECTS):
         super().__init__()
         self.img = QPixmap.fromImage(img)
+        self.max_rects = max_rects                      # 1: az új keret felváltja a régit (felirat helye)
         self.rects = [QRectF(*r) for r in rects]        # 0..1 arányban
         self.drag = None
         self.setMouseTracking(True)
@@ -45,7 +46,7 @@ class _Canvas(QWidget):
                     break
             self.on_change()
             self.update()
-        elif e.button() == Qt.LeftButton and len(self.rects) < MAX_RECTS:
+        elif e.button() == Qt.LeftButton and (len(self.rects) < self.max_rects or self.max_rects == 1):
             self.drag = (p, p)
             self.update()
 
@@ -59,7 +60,10 @@ class _Canvas(QWidget):
             r = QRectF(self.drag[0], self._rel(e.position())).normalized()
             self.drag = None
             if r.width() > 0.015 and r.height() > 0.015:
-                self.rects.append(r)
+                if self.max_rects == 1:
+                    self.rects = [r]
+                else:
+                    self.rects.append(r)
             self.on_change()
             self.update()
 

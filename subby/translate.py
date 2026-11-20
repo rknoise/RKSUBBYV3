@@ -212,7 +212,7 @@ def make_backend(kind, cfg, profile=None, deepl_key="", ollama_model=None, gloss
         def ollama(text, ctx):
             if is_tg:   # a TranslateGemma a saját, rögzített promptformátumát várja
                 body = {"model": model, "prompt": _TG_PROMPT.format(text=text), "stream": False,
-                        "keep_alive": "30m", "options": {"temperature": 0}}
+                        "keep_alive": -1, "options": {"temperature": 0}}
                 r = sess.get().post(url + "/api/generate", json=body, timeout=timeout)
                 r.raise_for_status()
                 return r.json()["response"].strip()
@@ -221,7 +221,7 @@ def make_backend(kind, cfg, profile=None, deepl_key="", ollama_model=None, gloss
                 user += "Previous lines (context only):\n" + "\n".join(ctx) + "\n\n"
             user += "Line to translate:\n" + text
             system = llm_system_prompt(profile.get("llm_hint", ""), profile.get("glossary"), cfg.deepl_formality)
-            body = {"model": model, "stream": False, "keep_alive": "30m",
+            body = {"model": model, "stream": False, "keep_alive": -1,
                     "options": {"temperature": 0.2},
                     "messages": [{"role": "system", "content": system},
                                  {"role": "user", "content": user}]}

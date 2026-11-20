@@ -12,3 +12,5 @@ build/
 dist/
 .venv-v3/
 build_v3*.log
+# a helyi mappába tett beszédfelismerő modell (nagy fájl, nem a forráskód része)
+models/

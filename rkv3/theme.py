@@ -82,7 +82,7 @@ QListWidget::item:selected {{ background: #1d1745; border-radius: 8px; color: {T
 QListWidget#Nav::item {{ border: none; padding: 9px 12px; border-radius: 9px; margin: 1px 0; }}
 QListWidget#Nav::item:selected {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #3a1640, stop:1 #1d1745); color: white; }}
 
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: #0a0e1e; border: 1px solid {BORDER};
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {{ background: #0a0e1e; border: 1px solid {BORDER};
     border-radius: 8px; padding: 6px 8px; selection-background-color: {ACCENT}; }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{ border-color: {ACCENT}; }}
 QComboBox QAbstractItemView {{ background: {PANEL2}; border: 1px solid {BORDER}; selection-background-color: #2a2060; }}
