@@ -121,6 +121,14 @@ DEFAULTS = {
     "cut_min_s": 5,                  # ennél rövidebb „jelenet” (pl. menü) a Lomtárba kerül
     "cut_stop_s": 2.0,               # ennyi ideig kell visszalátszania a HUD-nak a leállításhoz
 
+    # --- Játékfelirat-olvasó (V3.2): a képernyőn látszó angol felirat OCR-rel ---
+    "subocr_mode": "auto",           # "auto": a képernyőfelirat az elsődleges, a hang kiegészít (és kimarad, ha lefedi a felirat)
+                                     # "ocr_only": csak a képernyőfelirat | "off": kikapcsolva (csak a hang)
+    "subocr_fps": 4,                 # ennyiszer olvassa másodpercenként a felirat helyét (1-10)
+    "subocr_min_conf": 0.6,          # ennél bizonytalanabb olvasatot eldob (0.3-0.95)
+    "subocr_linger_s": 0.4,          # a magyar felirat ennyivel marad tovább, mint az angol a képen
+    "subocr_static_s": 14.0,         # ennél tovább változatlanul látszó szöveg nem beszéd (HUD): figyelmen kívül marad
+
     # --- V3 felület ---
     "subs_on_video": True,           # a felirat a képen
     "obs_server": False,             # OBS böngészőforrás-felirat a helyi webszerveren
@@ -139,6 +147,7 @@ LIVE_KEYS = {
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
     "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
     "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec", "desktop_overlay", "cut_preroll_s", "cut_min_s", "cut_stop_s",
+    "subocr_mode", "subocr_fps", "subocr_min_conf", "subocr_linger_s", "subocr_static_s",
     "update_check", "model", "asr_device", "profile", "dshow_device", "audio_kind", "video_res", "video_fps", "monitor_audio",
     "monitor_volume", "player_topmost", "screen_overlay", "launch_player", "autostart", "ffmpeg_path",
     # a fordító futás közben cserélhető (Engine.reload_translator)
@@ -156,6 +165,7 @@ _CHOICES = {
     "rec_quality": ("normal", "high", "max"),
     "source": ("auto", "card", "desktop"),
     "rec_codec": ("hevc", "h264"),
+    "subocr_mode": ("auto", "ocr_only", "off"),
 }
 _COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 
@@ -248,6 +258,14 @@ class Config:
                     value = max(0.0, min(1.5, value))
                 if key == "video_fps":
                     value = max(10, min(240, value))
+                if key == "subocr_fps":
+                    value = max(1, min(10, value))
+                if key == "subocr_min_conf":
+                    value = max(0.3, min(0.95, value))
+                if key == "subocr_linger_s":
+                    value = max(0.0, min(3.0, value))
+                if key == "subocr_static_s":
+                    value = max(6.0, min(120.0, value))
                 if key == "profile" and not valid_profile_id(value):
                     continue
                 self._overrides.pop(key, None)

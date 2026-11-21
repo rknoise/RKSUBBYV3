@@ -105,29 +105,64 @@ class SubtitleSink:
             self.partial_until = time.monotonic() + 3.0
             self._bump()
 
-    def final(self, hu, en, asr_ms, tr_ms, latency_ms):
-        self.echo(f"EN: {en}\nHU: {hu}\n    (ASR {asr_ms:.0f} ms, fordítás {tr_ms:.0f} ms, "
-                  f"késés a mondat végétől: {latency_ms:.0f} ms)\n")
+    def final(self, hu, en, asr_ms, tr_ms, latency_ms, ref=None):
+        """Kész magyar felirat. ref: a képernyőfelirat-olvasó (OCR) sora; ilyenkor a magyar addig marad, amíg az
+        angol látszik, és a pontos időzítésű SRT-sor akkor készül, amikor az angol eltűnik."""
+        src = "ocr" if ref is not None else "asr"
+        if ref is not None:
+            ref.on_complete(self._ocr_srt)
+            ref.set_hu(hu)
+            self.echo(f"EN (képernyő): {en}\nHU: {hu}\n    (fordítás {tr_ms:.0f} ms, "
+                      f"késés a felirat megjelenésétől: {latency_ms:.0f} ms)\n")
+        else:
+            self.echo(f"EN: {en}\nHU: {hu}\n    (ASR {asr_ms:.0f} ms, fordítás {tr_ms:.0f} ms, "
+                      f"késés a mondat végétől: {latency_ms:.0f} ms)\n")
         now = time.monotonic()
         dur = display_seconds(hu, self.cfg)
-        self._write_log(en, hu, asr_ms, tr_ms, latency_ms)
+        self._write_log(en, hu, asr_ms, tr_ms, latency_ms, src)
         with self.cond:
             self.history.append({"t": time.strftime("%H:%M:%S"), "en": en, "hu": hu, "asr_ms": round(asr_ms),
-                                 "tr_ms": round(tr_ms), "lat_ms": round(latency_ms)})
-            if self.srt:
+                                 "tr_ms": round(tr_ms), "lat_ms": round(latency_ms), "src": src})
+            if ref is None and self.srt:
                 try:
                     self.srt.add(hu, now, dur)
                 except OSError:
                     pass
             if self.paused:
                 return
-            self.lines.append({"id": self.next_id, "hu": hu, "en": en, "until": now + dur})
+            if ref is not None and ref.replaces is not None:      # a felirat második sora is megjelent: a régi helyére
+                self.lines = [ln for ln in self.lines if ln.get("ref") is not ref.replaces]
+            line = {"id": self.next_id, "hu": hu, "en": en, "until": now + dur}
+            if ref is not None:
+                line["ref"] = ref
+                line["hard"] = now + max(14.0, 2 * self.cfg.sub_max_s)
+            self.lines.append(line)
             self.next_id += 1
             del self.lines[:-max(1, self.cfg.max_lines)]
             self.partial_text = ""
             self._bump()
         if self.on_final:
             self.on_final(hu, en)
+
+    def _ocr_srt(self, ref):
+        """Az OCR-sor kész (az angol eltűnt, a magyar megvan): a sor a képen látszott ideig szerepel az SRT-ben."""
+        with self.cond:
+            if self.srt is None or not ref.hu:
+                return
+            try:
+                self.srt.add(ref.hu, ref.start_t, max(0.8, (ref.end_t or ref.start_t) - ref.start_t))
+            except OSError:
+                pass
+
+    def _alive(self, ln, now):
+        """Kint van-e még a felirat: a hangból jövő időre szól; a képernyőfelirat-sor addig, amíg az angol látszik."""
+        ref = ln.get("ref")
+        if ref is None:
+            return ln["until"] >= now
+        if ref.end_t is None:
+            return now <= ln["hard"]
+        linger = max(0.0, float(getattr(self.cfg, "subocr_linger_s", 0.4)))
+        return now <= max(ln["until"], ref.end_t + linger)
 
     def clear(self):
         with self.cond:
@@ -206,7 +241,7 @@ class SubtitleSink:
         if self.cfg.write_sub_files:
             self._files_q.put(1)
 
-    def _write_log(self, en, hu, asr_ms, tr_ms, latency_ms):
+    def _write_log(self, en, hu, asr_ms, tr_ms, latency_ms, src="asr"):
         if not self.cfg.log_enabled or not self.log_path or self._log_failed:
             return
         try:
@@ -214,8 +249,8 @@ class SubtitleSink:
                 new = not os.path.exists(self.log_path)
                 self._log = open(self.log_path, "a", encoding="utf-8", buffering=1)
                 if new:
-                    self._log.write("ido\tangol\tmagyar\tasr_ms\tforditas_ms\tkeses_ms\n")
-            row = [time.strftime("%H:%M:%S"), en, hu, f"{asr_ms:.0f}", f"{tr_ms:.0f}", f"{latency_ms:.0f}"]
+                    self._log.write("ido\tangol\tmagyar\tasr_ms\tforditas_ms\tkeses_ms\tforras\n")
+            row = [time.strftime("%H:%M:%S"), en, hu, f"{asr_ms:.0f}", f"{tr_ms:.0f}", f"{latency_ms:.0f}", src]
             self._log.write("\t".join(x.replace("\t", " ") for x in row) + "\n")
         except OSError as e:
             self._log_failed = True
@@ -234,8 +269,8 @@ class SubtitleSink:
             now = time.monotonic()
             with self.cond:
                 changed = False
-                if any(ln["until"] < now for ln in self.lines):
-                    self.lines = [ln for ln in self.lines if ln["until"] >= now]
+                if any(not self._alive(ln, now) for ln in self.lines):
+                    self.lines = [ln for ln in self.lines if self._alive(ln, now)]
                     changed = True
                 if self.partial_text and now > self.partial_until:
                     self.partial_text = ""

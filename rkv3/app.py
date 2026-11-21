@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QListW
                                QMainWindow, QMenu, QMessageBox, QProgressBar, QProgressDialog, QPushButton, QSlider,
                                QToolButton, QVBoxLayout, QWidget)
 
+from subby import subocr as sc_subocr  # noqa: E402
 from subby.display import SubtitleSink, display_seconds  # noqa: E402
 from subby.engine import Engine  # noqa: E402
 
@@ -118,12 +119,17 @@ class RecSrt:
 
 
 class Sink(SubtitleSink):
-    def __init__(self, cfg, on_cue):
+    def __init__(self, cfg, on_cue, on_ocr_cue=None):
         super().__init__(cfg, echo=lambda m: log.info(m.strip().replace("\n", " | ")))
         self.on_cue = on_cue
+        self.on_ocr_cue = on_ocr_cue
 
-    def final(self, hu, en, asr_ms, tr_ms, latency_ms):
-        super().final(hu, en, asr_ms, tr_ms, latency_ms)
+    def final(self, hu, en, asr_ms, tr_ms, latency_ms, ref=None):
+        if ref is not None and self.on_ocr_cue is not None:
+            ref.on_complete(self.on_ocr_cue)     # a képernyőfelirat SRT-sora akkor készül, amikor az angol eltűnt
+        super().final(hu, en, asr_ms, tr_ms, latency_ms, ref=ref)
+        if ref is not None:
+            return
         try:
             self.on_cue(hu, en, latency_ms)
         except Exception:
@@ -217,7 +223,7 @@ class MainWindow(QMainWindow):
         self.cut = cutscene.CutsceneWatcher(self.ring, self._cut_path, self._cut_started, self._cut_done,
                                             is_blocked=lambda: self.rec.active)
         self.cut_srt: RecSrt | None = None
-        self.sink = Sink(self.cfg, self._on_cue)
+        self.sink = Sink(self.cfg, self._on_cue, self._on_ocr_cue)
         self.engine = Engine(self.cfg, self.sink, log=self._engine_log)
         self.engine.monitor_enabled = False
         self.engine.source_factory = lambda on_audio: Tap(self, on_audio)
@@ -236,6 +242,12 @@ class MainWindow(QMainWindow):
         self._busy = threading.Lock()
         self._stalled = False
         self._slow = 0
+        self._audio_alive_t = time.monotonic()   # mikor jött utoljára hallható hang a kártyáról
+        self._audio_reopen_t = 0.0               # mikor nyitottuk újra utoljára a néma hang miatt
+        self._want_live = False      # a felhasználó azt kéri, hogy fusson az élő feliratozás (felügyelő)
+        self._eng_down_t = 0.0       # mióta áll a feliratozó, noha futnia kellene
+        self._eng_fail_n = 0         # egymás utáni újraindítások száma (a várakozás nő)
+        self._eng_up_t = 0.0         # mióta fut folyamatosan
         self._last_try = 0.0
         self._sub_version = -1
         self._sub_key = None
@@ -315,6 +327,10 @@ class MainWindow(QMainWindow):
         self.chip_cut.setObjectName("Chip")
         self.chip_cut.hide()
         hl.addWidget(self.chip_cut)
+        self.chip_ocr = QLabel("")
+        self.chip_ocr.setObjectName("Chip")
+        self.chip_ocr.hide()
+        hl.addWidget(self.chip_ocr)
         self.btn_update = QPushButton()
         self.btn_update.setObjectName("UpdateBtn")
         self.btn_update.hide()
@@ -387,6 +403,21 @@ class MainWindow(QMainWindow):
         self.btn_hud.clicked.connect(self.remark_hud)
         cl.addWidget(self.btn_cut)
         cl.addWidget(self.btn_hud)
+        cl.addWidget(self._sep())
+        self.btn_ocr = QPushButton("  Felirat-OCR")
+        self.btn_ocr.setObjectName("Toggle")
+        self.btn_ocr.setIcon(icon("eye", "#dfe3ff", 18))
+        self.btn_ocr.setCheckable(True)
+        self.btn_ocr.setChecked(self.cfg.subocr_mode != "off")
+        self.btn_ocr.setToolTip("Képernyőfelirat-olvasó (F6): a játék angol feliratát olvassa le a képről, és "
+                                "magyarra fordítja. Ha van felirat a képen, az az elsődleges, a hangfelismerés "
+                                "másodlagos (kimarad, ha a felirat lefedi). Ha nincs felirat, a hangból megy.")
+        self.btn_ocr.clicked.connect(self.toggle_ocr)
+        self.btn_ocr_roi = tool("crop", "A játék feliratának helye (a felirat-olvasóhoz): kijelölöd a képen, "
+                                "hol jelenik meg a beszélők szövege", size=18)
+        self.btn_ocr_roi.clicked.connect(self.mark_subregion)
+        cl.addWidget(self.btn_ocr)
+        cl.addWidget(self.btn_ocr_roi)
         cl.addStretch(1)
         self.btn_mute = tool("mute" if self.muted else "volume", "Hang be/ki")
         self.btn_mute.clicked.connect(self._toggle_mute)
@@ -504,7 +535,7 @@ class MainWindow(QMainWindow):
         return s
 
     def _shortcuts(self):
-        for key, fn in (("F7", lambda: self.btn_cut.click()), ("F9", self.toggle_record), ("F10", self.toggle_pause), ("F8", lambda: self.btn_cc.toggle()),
+        for key, fn in (("F6", lambda: self.btn_ocr.click()), ("F7", lambda: self.btn_cut.click()), ("F9", self.toggle_record), ("F10", self.toggle_pause), ("F8", lambda: self.btn_cc.toggle()),
                         ("F11", self.toggle_fullscreen), ("F12", self.snapshot), ("F5", self.restart_pipeline),
                         ("Escape", lambda: self.fullscreen and self.toggle_fullscreen())):
             sc_ = QShortcut(QKeySequence(key), self)
@@ -703,6 +734,9 @@ class MainWindow(QMainWindow):
         self.video.push_frame(frame)
         if self.cut.armed:
             self.cut.submit(frame)
+        ocr = self.engine.ocr
+        if ocr is not None:
+            ocr.offer(frame)            # magától ritkít; csak a felirat helyét másolja ki
 
     # ------------------------------------------------------------------ cutscene-figyelő
     def _hud_size(self):
@@ -730,6 +764,75 @@ class MainWindow(QMainWindow):
                 self.btn_cut.setChecked(False)
                 return
         self._cut_on(model)
+
+    # ------------------------------------------------------------------ felirat-olvasó (OCR)
+    def toggle_ocr(self, on=None):
+        on = self.btn_ocr.isChecked() if on is None else bool(on)
+        mode = "auto" if on else "off"
+        if on and self.cfg.subocr_mode in ("auto", "ocr_only"):
+            mode = self.cfg.subocr_mode
+        self.cfg.update({"subocr_mode": mode})
+        self._save_cfg()
+        self.btn_ocr.setChecked(on)
+        if on and sc_subocr.load_roi(self.cfg.profile) is None:
+            self.statusBar().showMessage("Felirat-OCR: jelöld ki, hol jelenik meg a játék felirata "
+                                         "(a vezérlősáv kijelölő gombja).", 9000)
+
+    def _update_ocr_chip(self, oc):
+        lb = self.chip_ocr
+        if not oc or oc["state"] == "off" or self.engine.state != "running":
+            if lb.isVisible():
+                lb.hide()
+            return
+        lb.show()
+        tip = ""
+        if oc["state"] == "no_roi":
+            self._chip(lb, "Felirat-OCR: jelöld ki a helyét", "warn")
+        elif oc["state"] == "loading":
+            self._chip(lb, "Felirat-OCR: betöltés…", "warn")
+        elif oc["state"] == "error":
+            self._chip(lb, "Felirat-OCR: hiba", "err")
+            tip = oc["error"]
+        elif oc["state"] == "reading":
+            self._chip(lb, "Felirat-OCR: olvas", "ok")
+            tip = oc["text"]
+        else:
+            self._chip(lb, "Felirat-OCR: figyel", "ok")
+            tip = f"{oc['reads']} olvasás, {oc['lines']} felirat, {oc['ms']} ms/olvasás"
+        lb.setToolTip(tip)
+
+    def mark_subregion(self):
+        from .hudmark import frame_to_qimage
+        from .subregion import SubRegionDialog
+
+        frame = self.last_frame
+        if frame is None or not (self.cap and self.fmt and self.state == "run" and self.video.has_video()):
+            self.statusBar().showMessage("A felirat helyének kijelöléséhez kép kell (nincs jel).", 6000)
+            return
+        profile = self.cfg.profile
+        min_conf = float(self.cfg.subocr_min_conf)
+
+        def test(rect):
+            box = sc_subocr.roi_pixels(rect, frame.width, frame.height)
+            return sc_subocr.read_text(sc_subocr.luma_crop(frame, box), min_conf=min_conf)
+
+        dlg = SubRegionDialog(frame_to_qimage(frame), sc_subocr.load_roi(profile) or sc_subocr.DEFAULT_RECT,
+                              self._profile_name(), test, self)
+        if dlg.exec() != SubRegionDialog.Accepted:
+            return
+        rect = dlg.rect()
+        if dlg.cleared or rect is None:
+            sc_subocr.clear_roi(profile)
+            self.statusBar().showMessage("Felirat helye törölve: a felirat-olvasó nem fut, minden a hangból megy.", 8000)
+        elif sc_subocr.save_roi(profile, rect):
+            if self.cfg.subocr_mode == "off":
+                self.cfg.update({"subocr_mode": "auto"})
+                self._save_cfg()
+                self.btn_ocr.setChecked(True)
+            self.statusBar().showMessage("Felirat helye mentve: a felirat-olvasó ezt figyeli.", 8000)
+        else:
+            self.statusBar().showMessage("A kijelölt hely túl kicsi.", 6000)
+        self.engine.reload_ocr()
 
     def remark_hud(self):
         if not (self.cap and self.fmt and self.state == "run" and self.video.has_video()):
@@ -832,6 +935,8 @@ class MainWindow(QMainWindow):
             ch = frame.layout.nb_channels
             n = frame.samples * ch
             data = np.frombuffer(frame.planes[0], np.int16, count=n)
+            if n and int(np.abs(data).max()) >= 18:      # ~ -65 dBFS fölött van hang
+                self._audio_alive_t = time.monotonic()
             if self.taps:
                 x = data.reshape(-1, ch).astype(np.float32) * (1 / 32768.0)
                 t = time.monotonic()
@@ -868,6 +973,7 @@ class MainWindow(QMainWindow):
                      self.state, self.fmt and (self.fmt["w"], self.fmt["h"], self.fmt["fps"]),
                      self.cap.fps_in if self.cap else 0, self.video.fps, self.rec.active, self.rec.dropped,
                      self.engine.state)
+        self._engine_watch()
         cap = self.cap
         if cap is None:
             if not self._busy.locked() and time.time() - self._last_try > 4:
@@ -907,12 +1013,25 @@ class MainWindow(QMainWindow):
                 cap.signal_event.clear()
                 self.restart_pipeline()
                 return
+            # A kártya hangja elnémulhat (pl. az Xbox hangformátumot vált, a HDMI újraegyeztet), miközben a
+            # videó jön. Ilyenkor a hangforrás újranyitása segít – eddig csak a ki-be kapcsolás.
+            now_m = time.monotonic()
+            if (self.state == "run" and not stalled and not cap.nosignal and self.engine.state == "running"
+                    and self.engine.mode == "live" and not self.rec.active and now_m - self._audio_alive_t > 45
+                    and time.time() - self._audio_reopen_t > 180):
+                log.info("a kártya hangja %.0f mp óta néma, közben jön a videó -> a rögzítés újranyitása",
+                         now_m - self._audio_alive_t)
+                self._audio_reopen_t = time.time()
+                self._audio_alive_t = now_m
+                self.restart_pipeline()
+                return
             if self.state in ("run", "nosignal"):
                 self.state = "nosignal" if (cap.nosignal or stalled) else "run"
         # autostart feliratozó
         if (self.state == "run" and self.cfg.autostart and not self.engine_autostarted
                 and self.engine.state == "idle"):
             self.engine_autostarted = True
+            self._want_live = True
             self.engine.start("live")
         self._update_video_message()
         if self.rec.error:
@@ -921,6 +1040,48 @@ class MainWindow(QMainWindow):
             if rs:
                 rs.close()
             QMessageBox.warning(self, "Felvétel", err)
+
+    def _engine_watch(self):
+        """Felügyelő: ha az élő feliratozó nem a felhasználó kérésére állt le (hiba, elhalt szál, a próba után),
+        pár másodperc múlva újraindítja. A várakozás hibasorozatnál nő (5 s -> 60 s), így nem pörög."""
+        eng = self.engine
+        if not self._want_live:
+            self._eng_down_t = 0.0
+            return
+        now = time.monotonic()
+        st = eng.state
+        if st in ("loading", "stopping") or (st == "running" and eng.mode == "test"):
+            self._eng_down_t = 0.0
+            return
+        if st == "running":
+            self._eng_down_t = 0.0
+            if not self._eng_up_t:
+                self._eng_up_t = now
+            if now - self._eng_up_t > 90:
+                self._eng_fail_n = 0              # stabil: a hibasorozat vége
+            if not eng.threads_alive():
+                log.warning("a feliratozó egyik szála leállt -> újraindítás")
+                self._eng_up_t = 0.0
+                self._eng_fail_n += 1
+                self.bus.notify.emit("A feliratozó egyik része leállt, újraindítom…")
+                threading.Thread(target=lambda: (eng.stop("Felügyelő: egy szál leállt."), time.sleep(0.5)),
+                                 daemon=True, name="eng-recover").start()
+            return
+        # idle / error, miközben futnia kellene
+        self._eng_up_t = 0.0
+        if not self._eng_down_t:
+            self._eng_down_t = now
+            return
+        wait = min(5 * 2 ** self._eng_fail_n, 60)
+        if now - self._eng_down_t < wait:
+            return
+        self._eng_down_t = 0.0
+        self._eng_fail_n += 1
+        why = eng.error or eng.finished or "ismeretlen ok"
+        log.warning("a feliratozó áll (%s) -> újraindítás (%d. próba)", why, self._eng_fail_n)
+        ok, msg = eng.start("live")
+        if ok:
+            self.bus.notify.emit("A feliratozó újraindult.")
 
     def _update_video_message(self):
         msgs = {
@@ -1011,6 +1172,8 @@ class MainWindow(QMainWindow):
                 self.bus.cut_error.emit(err)
         elif self.chip_cut.isVisible():
             self.chip_cut.hide()
+        # felirat-olvasó
+        self._update_ocr_chip(st.get("ocr"))
         # engine card
         self._update_engine_card(st)
         title = "rksubby V3"
@@ -1060,6 +1223,9 @@ class MainWindow(QMainWindow):
             parts.append("Fordító: " + " → ".join(chain))
         if tr.get("requests"):
             parts.append(f"{tr['requests']} fordítás, {tr.get('sent_chars', 0):,} karakter".replace(",", " "))
+        oc = st.get("ocr")
+        if oc and oc["state"] in ("watching", "reading"):
+            parts.append(f"Felirat-OCR: {oc['lines']} felirat a képről · {oc['ms']} ms/olvasás")
         used, limit = info.get("deepl_used"), info.get("deepl_limit")
         if used is not None and limit:
             parts.append(f"DeepL havi keret: {used:,} / {limit:,}".replace(",", " "))
@@ -1098,7 +1264,8 @@ class MainWindow(QMainWindow):
             for h in reversed(hist[-25:]):
                 it = QListWidgetItem()
                 lb = QLabel(f"<span style='color:#eef0ff;font-weight:600'>{_esc(h['hu'])}</span><br>"
-                            f"<span style='color:#7d86ad;font-size:8.5pt'>{h['t']} · {_esc(h['en'])}</span>")
+                            f"<span style='color:#7d86ad;font-size:8.5pt'>{h['t']}{' · képernyőfelirat' if h.get('src') == 'ocr' else ''}"
+                            f" · {_esc(h['en'])}</span>")
                 lb.setWordWrap(True)
                 lb.setTextFormat(Qt.RichText)
                 lb.setContentsMargins(2, 2, 2, 2)
@@ -1123,14 +1290,34 @@ class MainWindow(QMainWindow):
         if rs is not None and rec.active and not rec.paused:
             add(rs, rec.elapsed)
 
+    def _on_ocr_cue(self, ref):
+        """Képernyőfelirat-sor kész (az angol eltűnt, a magyar megvan): a felvétel mellé írt .srt-be, a felirat
+        tényleges megjelenési idejével (a felvétel idővonalán)."""
+        mono = time.monotonic()
+
+        def add(srt, elapsed):
+            start = elapsed - (mono - ref.start_t)
+            end = elapsed - (mono - (ref.end_t or mono))
+            srt.add(start, max(end, start + 1.0), ref.hu)
+
+        cs = self.cut_srt
+        if cs is not None and self.ring.writing:
+            add(cs, self.ring.file_elapsed())
+        rs, rec = self.rec_srt, self.rec
+        if rs is not None and rec.active and not rec.paused:
+            add(rs, rec.elapsed)
+
     def _toggle_cc(self, on):
         self.cfg.update({"subs_on_video": bool(on)})
         self._save_cfg()
 
     def toggle_engine(self):
         if self.engine.state in ("running", "loading"):
+            self._want_live = False          # szándékos leállítás: a felügyelő ne indítsa újra
             threading.Thread(target=self.engine.stop, daemon=True).start()
         else:
+            self._want_live = True
+            self._eng_fail_n = 0
             ok, msg = self.engine.start("live")
             if not ok:
                 self.statusBar().showMessage(msg, 6000)
@@ -1408,6 +1595,8 @@ class MainWindow(QMainWindow):
             self._rearm_cut()
         if changed & {"desktop_subs_in_rec", "desktop_overlay"}:
             self._apply_source()
+        self.btn_ocr.setChecked(self.cfg.subocr_mode != "off")
+        self.engine.reload_ocr()          # új profil / felirat-hely után az olvasó az újat használja
         if "monitor_audio" in changed:
             self.muted = not self.cfg.monitor_audio
             self.btn_mute.setIcon(icon("mute" if self.muted else "volume", "#dfe3ff", 20))
@@ -1432,6 +1621,7 @@ class MainWindow(QMainWindow):
                 self.rec.stop()
                 if self.rec_srt:
                     self.rec_srt.close()
+            self._want_live = False
             self.engine.stop("Kilépés.")
             if self.cap:
                 self.cap.stop()

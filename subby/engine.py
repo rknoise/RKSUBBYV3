@@ -22,10 +22,17 @@ def display_loop(display_q, sink, translator, stop, timeout_s):
             hu, tr_ms = item.future.result(timeout=timeout_s + 2)
         except Exception:
             hu, tr_ms = None, -1.0
-        latency = (time.monotonic() - item.t_speech_end) * 1000
-        if hu:
-            translator.note_shown(item.en)
-        sink.final(hu or item.en, item.en, item.asr_ms, tr_ms, latency)
+        try:
+            latency = (time.monotonic() - item.t_speech_end) * 1000
+            if hu:
+                translator.note_shown(item.en)
+            ref = getattr(item, "ref", None)
+            if ref is not None:      # képernyőfelirat (OCR): a magyar addig marad, amíg az angol látszik
+                sink.final(hu or item.en, item.en, item.asr_ms, tr_ms, latency, ref=ref)
+            else:
+                sink.final(hu or item.en, item.en, item.asr_ms, tr_ms, latency)
+        except Exception as ex:   # egy hibás sor ne állítsa le a kijelzőszálat (különben néma marad a felirat)
+            print(f"[hiba a kijelzésben] {ex!r}")
 
 
 class Engine:
@@ -44,6 +51,7 @@ class Engine:
         self.source_factory = None   # V3: fn(on_audio) -> hangforrás (a rögzítő hangja); None = ffmpeg/hangkártya
         self.monitor_enabled = True  # V3-ban a hangot a lejátszó szólaltatja meg, nem az AudioMonitor
         self.capture = self.translator = self.subtitler = self.monitor = None
+        self.ocr = self.fusion = None   # a képernyőfelirat-olvasó (subocr) és a hang-OCR összehangoló, élő módban
         self._asr = None
         self._asr_req = None
         self._asr_desc = ""
@@ -79,9 +87,12 @@ class Engine:
             self._run_id += 1            # az esetleg még futó indítás érvénytelen
             self.state = "stopping"
             stop, threads = self._stop, self._threads
-            cap, tr, mon = self.capture, self.translator, self.monitor
+            cap, tr, mon, ocr = self.capture, self.translator, self.monitor, self.ocr
             self.capture = self.translator = self.subtitler = self.monitor = None
+            self.ocr = self.fusion = None
         stop.set()
+        if ocr:
+            ocr.stop()
         if cap:
             cap.stop()
         if mon:
@@ -98,12 +109,21 @@ class Engine:
         self.log(reason)
         return True
 
+    def threads_alive(self):
+        """False, ha futó állapotban valamelyik munkaszál (ASR, kijelző) elhalt."""
+        with self._lock:
+            if self.state != "running":
+                return True
+            return all(t.is_alive() for t in self._threads)
+
     def status(self):
         with self._lock:
             st = {"state": self.state, "mode": self.mode, "error": self.error, "finished": self.finished,
                   "steps": self.steps[-16:], "info": dict(self.info),
                   "uptime_s": round(time.monotonic() - self.started_at) if self.state == "running" else 0}
-            sub, cap, tr, mon = self.subtitler, self.capture, self.translator, self.monitor
+            sub, cap, tr, mon, ocr = self.subtitler, self.capture, self.translator, self.monitor, self.ocr
+        if ocr:
+            st["ocr"] = ocr.status()
         if sub:
             st["audio"] = dict(sub.level, msg=sub.status_msg, lag=round(sub.lag, 2),
                                stalled=time.monotonic() - sub.last_audio_t > 3.0)
@@ -128,7 +148,7 @@ class Engine:
     def _boot(self, rid, stop, mode, wav_path, speed):
         t_start = time.perf_counter()
         cfg = self.cfg
-        cap = translator = monitor = None
+        cap = translator = monitor = ocr = None
         try:
             if self.on_before_start:
                 self.on_before_start()
@@ -140,7 +160,7 @@ class Engine:
 
             from .audio import load_audio_file, start_wav_feeder
             from .capture import AsrFeeder, AudioMonitor, make_source
-            from .subtitler import LiveSubtitler
+            from .subtitler import FinalItem, LiveSubtitler
             from .translate import Translator, deepl_usage
             from .vad import StreamingVAD
 
@@ -170,8 +190,15 @@ class Engine:
                 return
 
             audio_q, display_q = queue.Queue(), queue.Queue()
+            fusion = None
+            if mode == "live":
+                from .subocr import Fusion
+
+                fusion = Fusion(cfg)
             sub = LiveSubtitler(cfg, asr, StreamingVAD(), translator, self.sink, display_q,
-                                log=self.log, debug=self.debug)
+                                log=self.log, debug=self.debug, fusion=fusion)
+            if fusion is not None:
+                ocr = self._make_ocr(fusion, sub, translator, display_q, FinalItem)
             threads = [threading.Thread(target=sub.run, args=(audio_q, stop), daemon=True, name="asr"),
                        threading.Thread(target=display_loop, daemon=True, name="kijelzo",
                                         args=(display_q, self.sink, translator, stop, cfg.translate_timeout_s))]
@@ -199,7 +226,10 @@ class Engine:
                     t.start()
                 self._threads = threads
                 self.capture, self.translator, self.subtitler, self.monitor = cap, translator, sub, monitor
+                self.ocr, self.fusion = ocr, fusion
                 self.state, self.started_at = "running", time.monotonic()
+            if ocr is not None:
+                ocr.start()
             if mode == "test":
                 start_wav_feeder(audio, audio_q, speed, stop, lambda: self._wav_done(rid),
                                  tap=lambda x: monitor.push(np.repeat(x[:, None], 2, axis=1), SAMPLE_RATE))
@@ -221,6 +251,29 @@ class Engine:
                 if rid == self._run_id:
                     self.state, self.error = "error", short_err(e)
             self.log(f"[hiba] Az indítás nem sikerült: {short_err(e)}")
+
+    def _make_ocr(self, fusion, sub, translator, display_q, final_item):
+        """A képernyőfelirat-olvasó: az új feliratsorokat lefordítja, és a hangból jövőkkel azonos sorba teszi."""
+        from .subocr import SubtitleOcr, load_roi
+
+        def emit(ref):
+            fut = translator.submit(ref.en, sub.context_list(), kind="final")
+            sub.note_external(ref.en)
+            display_q.put(final_item(ref.en, fut, ref.start_t, 0.0, ref))
+
+        ocr = SubtitleOcr(self.cfg, fusion, emit, log=self.log)
+        ocr.set_roi(load_roi(self.cfg.profile))
+        return ocr
+
+    def reload_ocr(self):
+        """Új felirat-hely vagy játékprofil után: az olvasó az új téglalapot használja, újraindítás nélkül."""
+        ocr = self.ocr
+        if ocr is None:
+            return False
+        from .subocr import load_roi
+
+        ocr.set_roi(load_roi(self.cfg.profile))
+        return True
 
     def _build_chain(self, profile, rid=None):
         """A fordítósor a beállítások, a DeepL-kulcs és a profil glosszáriuma alapján."""

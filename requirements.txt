@@ -8,6 +8,7 @@ PyAudioWPatch               # a gép hangja (WASAPI loopback)
 numpy
 pillow
 faster-whisper>=1.2.1       # beszédfelismerés (+ Silero VAD)
+rapidocr-onnxruntime>=1.3.24,<2   # felirat-olvasó (OCR a képernyő feliratához; a modellek a csomagban vannak, Python <3.13)
 requests
 # NVIDIA GPU-hoz: CUDA 12 / cuDNN 9 könyvtárak a faster-whisperhez
 nvidia-cublas-cu12
