@@ -278,8 +278,8 @@ class SettingsDialog(QDialog):
         self.box_op.setSuffix(" %")
         self.box_op.setValue(int(float(st.get("box_opacity", 0.5)) * 100))
         form.addRow("", _row(self.box, QLabel("átlátszatlanság:"), self.box_op))
-        self.scroll_bg = QCheckBox("Több mondatnál: a régi piros, az új kék háttéren")
-        self.scroll_bg.setChecked(bool(st.get("scroll_bg", True)))
+        self.scroll_bg = QCheckBox("Több mondatnál: a régi halványul és hamar eltűnik, az új éles")
+        self.scroll_bg.setChecked(bool(st.get("dim_old", True)))
         form.addRow("", self.scroll_bg)
         self.max_lines = QSpinBox()
         self.max_lines.setRange(1, 4)
@@ -526,7 +526,7 @@ class SettingsDialog(QDialog):
         style = dict(self.cfg.style)
         style.update(font_size=self.font_size.value(), color=self.color.color, en_color=self.en_color.color,
                      box=self.box.isChecked(), box_opacity=self.box_op.value() / 100.0, bottom=self.bottom.value(),
-                     max_width=self.max_width.value(), scroll_bg=self.scroll_bg.isChecked())
+                     max_width=self.max_width.value(), dim_old=self.scroll_bg.isChecked())
         return {
             "translator": tr, "translate_fallback": self.fallback.isChecked(),
             "deepl_formality": self.formality.currentData(), "deepl_glossary": self.glossary.isChecked(),

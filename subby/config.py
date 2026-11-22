@@ -89,6 +89,7 @@ DEFAULTS = {
     "sub_min_s": 1.8,                # egy felirat legalább ennyi ideig látszik
     "sub_max_s": 7.0,
     "read_chars_per_s": 14,          # olvasási tempó a kijelzési időhöz
+    "sub_old_grace_s": 1.4,          # ennyi ideig marad (halványan) a régi mondat, ha új érkezett
     "style": {
         "font": "Arial",
         "font_size": 32,             # pixel (1920x1080-as böngészőforráson)
@@ -98,9 +99,7 @@ DEFAULTS = {
         "box_opacity": 0.5,
         "max_width": 1300,           # ennél szélesebb sor nem lesz (px), így könnyebb olvasni
         "bottom": 40,                # távolság a kép aljától (px)
-        "scroll_bg": True,           # több mondat egyszerre: a régi piros, az új kék háttéren (könnyebb követni)
-        "scroll_old_bg": "#b3202a",  # a feljebb csúszott (régi) mondat háttere
-        "scroll_new_bg": "#1e56c8",  # az újonnan érkezett mondat háttere
+        "dim_old": True,             # több mondat egyszerre: a régi halvány, és hamar eltűnik; az új az alsó helyen, élesen
     },
     "overlay_screen": 0,             # a beépített Qt-ablak (--overlay) melyik monitoron legyen
     "log_enabled": True,             # sub_log.tsv: EN / HU / késés mondatonként
@@ -146,7 +145,7 @@ DEFAULTS = {
 
 # Ezek a futó feliratozót is azonnal módosítják; a többihez újraindítás kell
 LIVE_KEYS = {
-    "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s",
+    "show_partial_en", "show_en_under_hu", "max_lines", "sub_min_s", "sub_max_s", "read_chars_per_s", "sub_old_grace_s",
     "style", "write_sub_files", "setup_done", "open_window", "deepl_formality", "log_enabled",
     "overlay_screen", "http_port", "video_device", "rec_dir", "rec_quality", "rec_codec", "rec_srt",
     "subs_on_video", "obs_server", "side_panel", "source", "desktop_output", "desktop_fps", "desktop_subs_in_rec", "desktop_overlay", "cut_preroll_s", "cut_min_s", "cut_stop_s",
@@ -239,7 +238,7 @@ class Config:
                             if sk not in default:
                                 continue
                             sv = _coerce(default[sk], sv)
-                            if sk in ("color", "en_color", "scroll_old_bg", "scroll_new_bg") and not _COLOR_RE.fullmatch(sv):
+                            if sk in ("color", "en_color") and not _COLOR_RE.fullmatch(sv):
                                 continue
                             new[sk] = sv
                         new["font_size"] = max(12, min(120, new["font_size"]))

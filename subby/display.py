@@ -132,6 +132,10 @@ class SubtitleSink:
                 return
             if ref is not None and ref.replaces is not None:      # a felirat második sora is megjelent: a régi helyére
                 self.lines = [ln for ln in self.lines if ln.get("ref") is not ref.replaces]
+            if self.cfg.style.get("dim_old", True):       # az új mondat érkezett: a régi hamar eltűnik (halványan)
+                grace = max(0.3, float(getattr(self.cfg, "sub_old_grace_s", 1.4)))
+                for old in self.lines:
+                    old["drop"] = min(old.get("drop", now + grace), now + grace)
             line = {"id": self.next_id, "hu": hu, "en": en, "until": now + dur}
             if ref is not None:
                 line["ref"] = ref
@@ -156,6 +160,8 @@ class SubtitleSink:
 
     def _alive(self, ln, now):
         """Kint van-e még a felirat: a hangból jövő időre szól; a képernyőfelirat-sor addig, amíg az angol látszik."""
+        if "drop" in ln and now >= ln["drop"]:
+            return False
         ref = ln.get("ref")
         if ref is None:
             return ln["until"] >= now
