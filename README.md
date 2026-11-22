@@ -2,9 +2,9 @@
 
 # rksubby V3 – PC/Xbox/PS5-rögzítő élő magyar felirattal
 
-> **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) — and now for PC games and apps on the Windows desktop too — with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. A source switch selects the capture card or a Windows monitor (DXGI Desktop Duplication + WASAPI loopback audio; subtitles appear in a click-through on-screen bar), and an automatic mode falls back to the desktop when the console is off. **New in 3.2:** a built-in **game-subtitle reader** — it reads the English subtitles the game itself draws (OCR, on the CPU) and translates them as soon as they appear on screen; speech recognition stays on as the secondary source and is skipped wherever an on-screen subtitle already covers the speech. The live subtitler also got a supervisor that restarts it if it ever stops and re-opens a silent capture-card audio input. Everything is configured behind a single gear button. The all-in-one installer contains everything, including the CUDA libraries and the speech model; only the capture card driver is not included.
+> **English summary:** rksubby V3 is a lightweight, RECentral-style capture app for the Xbox (or any HDMI source) — and now for PC games and apps on the Windows desktop too — with live Hungarian subtitles. It shows the capture card's picture in its own window at up to **1080p120**, rendered on the GPU with almost no CPU load, records it with **NVENC** (HEVC or H.264 + AAC, crash-safe MP4) at the exact resolution and frame rate of the incoming signal, and turns English speech into Hungarian subtitles on the fly: Silero VAD + faster-whisper on the GPU, translated by DeepL, a local AI (Ollama) or Google. Subtitles are drawn on the picture, saved next to each recording as `.srt`, and can be burned into an exported copy. A source switch selects the capture card or a Windows monitor (DXGI Desktop Duplication + WASAPI loopback audio; subtitles appear in a click-through on-screen bar), and an automatic mode falls back to the desktop when the console is off. **New in 3.2:** a built-in **game-subtitle reader** — it reads the English subtitles the game itself draws (OCR, on the CPU) and translates them as soon as they appear on screen; speech recognition stays on as the secondary source and is skipped wherever an on-screen subtitle already covers the speech. The live subtitler also got a supervisor that restarts it if it ever stops and re-opens a silent capture-card audio input. New in 3.2.1: no capture card? Use Xbox Remote Play or PS Remote Play on the PC and record the desktop (one-click preset in Settings). Also, when several sentences are on screen at once, the older one fades and disappears quickly while the newest stays bright at the usual spot, so you never lose your place (optional). Everything is configured behind a single gear button. The all-in-one installer contains everything, including the CUDA libraries and the speech model; only the capture card driver is not included.
 
-Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes jelét kezeli**. Mutatja pl az Xbox, Playstation képét 120 Hz-en,  felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
+Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes jelét kezeli**. Mutatja pl az Xbox, Playstation képét 120 Hz-en,  felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal), és **capture kártya nélkül** is használható: az Xbox vagy PlayStation távoli játékának ablakát rögzíti (lásd lent). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
 ## Új a 3.2-ben: pontosabb, jobb feliratozás
 
@@ -12,6 +12,11 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes j
 <p align="center"><sub>Játék közben: felül a játék saját angol felirata (leolvasva a képről), alatta sárgával a magyar felirat.</sub></p>
 
 Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó, középső részén feliratot lát, azt részesíti előnben, és **a hallás és a képernyőfelirat együtt** alapján készíti a magyar feliratot. Így a felirat pontosabb, a magyar szöveg a játék feliratával egy időben jelenik meg, és az OCR a processzoron fut, nem terheli a videokártyát. Ahol nincs felirat a képen, ott minden megy tovább a hangból, mint eddig. Részletek lent, a „Felirat-olvasó” fejezetben.
+
+**Új a 3.2.1-ben: könnyebb olvasás hosszú monológnál.** Ha egyszerre két vagy több mondat látszik, az új mondat az alsó helyen marad élesen (oda nézel), a régi pedig felette elhalványul, és röviddel utána eltűnik. Így nem vész el a fonal. A Beállítások › Felirat oldalon ki-be kapcsolható.
+
+<p align="center"><img src="docs/rksubby_v3_2_1_halvanyodo.jpg" alt="rksubby 3.2.1: a régi mondat halványan felül, az új mondat élesen alul" width="100%"></p>
+<p align="center"><sub>Két mondat egyszerre: felül halványan a régi (már olvasott) mondat, alul élesen az új. Röviddel utána a régi eltűnik.</sub></p>
 
 <p align="center"><img src="docs/rksubby_v3_screenshot.jpg" alt="rksubby V3: élő magyar felirat az Xbox képén, oldalt az utolsó lefordított mondatok" width="100%"></p>
 <p align="center"><sub>Élő magyar felirat egy angol videóhoz az Xboxról (1080p · 120 fps, DeepL). Jobbra a feliratozó állapota és az utolsó lefordított mondatok.</sub></p>
@@ -54,6 +59,23 @@ Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó,
 Minden benne van, a beszédfelismerő modell (distil-large-v3) is: a telepítés után semmit nem kell letölteni. Más modellt (pl. large-v3-turbo) a program első használatkor tölt le. A régi V2 beállításait (DeepL-kulcs, játékprofil, felirat stílusa) a V3 magától átveszi, mert ugyanabban a mappában vannak: `%USERPROFILE%\.rksubby`.
 
 **Amit a telepítő nem tud feltenni:** a capture kártya illesztőprogramját (pl. AVerMedia GC573 a gyártó oldaláról). Ha nem találja a kártyát, a telepítő szól.
+
+## Capture kártya nélkül: Xbox és PlayStation távoli játékkal
+
+Nincs capture kártyád? Az rksubby így is használható: a konzol képe és hangja a PC-n fut a gyártó alkalmazásában (távoli játék), az rksubby pedig a **Windows asztal** forrással rögzíti és feliratozza, ugyanúgy, mint egy PC-s játékot. A monitorválasztó (Beállítások › Kép és hang › Asztal – monitor) azt a monitort rögzíti, amelyiken a távoli játék ablaka látszik.
+
+1. **Konzol beállítása**
+   - *Xbox:* Beállítások › Eszközök és kapcsolatok › Távoli funkciók › **Távoli funkciók engedélyezése** (és állítsd az energiamódot Instant-On-ra, hogy ki lehessen kapcsolt állapotból is elérni).
+   - *PlayStation 5:* Beállítások › Rendszer › **Remote Play** › Remote Play engedélyezése.
+2. **PC-s alkalmazás**
+   - *Xbox:* az Xbox alkalmazás (Microsoft Store, Windows 10/11). Jelentkezz be ugyanazzal a Microsoft-fiókkal, majd a Konzolok ikonnal (bal felül) indítsd a távoli játékot.
+   - *PlayStation:* a PS Remote Play alkalmazás (playstation.com), PSN-bejelentkezéssel. Az alkalmazás beállításaiban állítsd a videóminőséget 1080p-re.
+3. **rksubby beállítása:** Beállítások › Kép és hang › **„Beállítás távoli játékhoz”** gomb (Windows asztal, 60 fps, felirat-sáv a képernyő alján), és válaszd ki azt a monitort, amelyiken a távoli játék ablaka van.
+   - *Két monitorral:* a távoli játék az egyiken, az rksubby a másikon.
+   - *Egy monitorral:* tedd az Xbox/PS Remote Play ablakot teljes képernyőre, és hagyd bekapcsolva a felirat-sávot. A felirat a játék fölött, a képernyő alján látszik, az rksubby saját ablaka nem kerül a felvételre.
+4. Indítsd a játékot a konzolon. A hang a rendszerhangból jön (WASAPI loopback), a felirat-olvasó (F6) és a cutscene-figyelő (F7) ugyanúgy működik.
+
+**Korlátok:** a távoli játék képe tömörített, kb. 1080p / 60 fps, kicsit nagyobb késéssel és gyengébb képminőséggel, mint a capture kártyáé. 120 fps-hez és a legjobb minőséghez továbbra is capture kártya kell. Ha a rögzített kép fekete, az alkalmazás ablakát tedd a rögzített monitorra, és állítsd át teljes képernyőre.
 
 ## Kezelés
 

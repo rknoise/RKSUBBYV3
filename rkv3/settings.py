@@ -405,7 +405,7 @@ class SettingsDialog(QDialog):
         self.source = QComboBox()
         for k, label in (("auto", "Automatikus – a kártya, ha van jele; különben a Windows asztal"),
                          ("card", "Capture kártya (Xbox, PlayStation, bármilyen HDMI)"),
-                         ("desktop", "Windows asztal (PC-s játék, program, videó)")):
+                         ("desktop", "Windows asztal (PC-s játék, program, videó; vagy Xbox/PlayStation távoli játék)")):
             self.source.addItem(label, k)
         self.source.setCurrentIndex(max(0, self.source.findData(c.source)))
         form.addRow("Forrás:", self.source)
@@ -442,10 +442,33 @@ class SettingsDialog(QDialog):
                               "Egy monitornál kapcsold be a felirat-sávot: az a játék fölött, a képernyő alján látszik – "
                               "ehhez a játék fusson <b>keret nélküli ablakban</b>. Az rksubby saját ablaka nem kerül a "
                               "felvételre."))
+        self.remote_btn = QPushButton("Beállítás távoli játékhoz (Xbox / PlayStation, capture kártya nélkül)")
+        self.remote_btn.setToolTip("Forrás: Windows asztal, 60 fps, felirat-sáv a képernyő alján")
+        self.remote_btn.clicked.connect(self._preset_remote)
+        form.addRow("", self.remote_btn)
+        form.addRow("", _hint(
+            "<b>Capture kártya nélkül (Xbox vagy PlayStation távoli játékkal):</b> a konzol képe és hangja a PC-n fut egy "
+            "alkalmazásban, az rksubby pedig a Windows asztalt rögzíti, mint egy PC-s játéknál.<br>"
+            "<b>1.</b> Konzol – <i>Xbox:</i> Beállítások › Eszközök és kapcsolatok › Távoli funkciók › Távoli funkciók "
+            "engedélyezése (és Instant-On energiamód). <i>PlayStation 5:</i> Beállítások › Rendszer › Remote Play › "
+            "Remote Play engedélyezése.<br>"
+            "<b>2.</b> PC – <i>Xbox:</i> Xbox alkalmazás (Microsoft Store), jelentkezz be, majd a Konzolok ikonnal "
+            "(bal felül) indítsd a távoli játékot. <i>PlayStation:</i> PS Remote Play alkalmazás (playstation.com), "
+            "PSN-bejelentkezés, a videóminőséget állítsd 1080p-re.<br>"
+            "<b>3.</b> Kattints fent a gombra, a <b>monitor</b> legyen az, amelyiken a távoli játék ablaka látszik. "
+            "Egy monitornál tedd az alkalmazást teljes képernyőre, és legyen bekapcsolva a felirat-sáv.<br>"
+            "<b>4.</b> Indítsd a játékot a konzolon. A távoli játék kb. 1080p / 60 fps, kicsit több késéssel és "
+            "tömörítéssel, mint a capture kártya."))
         self.monitor = QCheckBox("A játék hangja szóljon ezen a gépen is")
         self.monitor.setChecked(c.monitor_audio)
         form.addRow("", self.monitor)
         return form
+
+    def _preset_remote(self):
+        """Távoli játék (Xbox / PlayStation alkalmazás a PC-n): Windows asztal, 60 fps, felirat-sáv."""
+        self.source.setCurrentIndex(max(0, self.source.findData("desktop")))
+        self.dfps.setCurrentIndex(max(0, self.dfps.findData(60)))
+        self.dover.setChecked(True)
 
     def _page_about(self):
         w = QWidget()

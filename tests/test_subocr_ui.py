@@ -101,3 +101,63 @@ class OcrDialogTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAVE_QT, "PySide6 nincs telepítve")
+class RemotePlayPresetTests(unittest.TestCase):
+    """A „Beállítás távoli játékhoz” gomb: Windows asztal, 60 fps, felirat-sáv."""
+
+    @classmethod
+    def setUpClass(cls):
+        from rkv3.theme import QSS
+        cls.app = QApplication.instance() or QApplication([])
+        cls.app.setStyleSheet(QSS)
+
+    def test_preset_sets_desktop_60fps_overlay(self):
+        from rkv3.settings import SettingsDialog
+        cfg = make_cfg(source="card", desktop_fps=120, desktop_overlay=False)
+        dlg = SettingsDialog(cfg, [], None, 0, outputs=[])
+        dlg.remote_btn.click()
+        ch = dlg.changes()
+        self.assertEqual(ch["source"], "desktop")
+        self.assertEqual(ch["desktop_fps"], 60)
+        self.assertTrue(ch["desktop_overlay"])
+        cfg.update(ch)
+        self.assertEqual(cfg.source, "desktop")
+        dlg.close()
+
+    def test_dim_old_option_roundtrip(self):
+        from rkv3.settings import SettingsDialog
+        cfg = make_cfg()
+        dlg = SettingsDialog(cfg, [], None, 0, outputs=[])
+        self.assertTrue(dlg.changes()["style"]["dim_old"])
+        dlg.scroll_bg.setChecked(False)
+        cfg.update(dlg.changes())
+        self.assertFalse(cfg.style["dim_old"])
+        dlg.close()
+
+
+class OldLineFadeTests(unittest.TestCase):
+    """Több mondat egyszerre: az új érkezésekor a régi hamar eltűnik (dim_old), kikapcsolva marad."""
+
+    def make(self, **changes):
+        from subby.display import SubtitleSink
+        cfg = make_cfg(sub_min_s=6.0, sub_max_s=7.0, sub_old_grace_s=0.3, **changes)
+        return SubtitleSink(cfg, log_path="", echo=lambda *a, **k: None)
+
+    def test_old_line_drops_after_grace(self):
+        import time
+        sink = self.make()
+        sink.final("Első hosszú mondat.", "first", 0, 0, 0)
+        sink.final("Második mondat.", "second", 0, 0, 0)
+        self.assertEqual([ln["hu"] for ln in sink.lines], ["Első hosszú mondat.", "Második mondat."])
+        time.sleep(0.8)
+        self.assertEqual([ln["hu"] for ln in sink.lines], ["Második mondat."])
+
+    def test_dim_old_off_keeps_old_line(self):
+        import time
+        sink = self.make(style={"dim_old": False})
+        sink.final("Első hosszú mondat.", "first", 0, 0, 0)
+        sink.final("Második mondat.", "second", 0, 0, 0)
+        time.sleep(0.8)
+        self.assertEqual(len(sink.lines), 2)

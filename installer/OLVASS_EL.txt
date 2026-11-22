@@ -33,6 +33,21 @@ CUTSCENE-FIGYELŐ (F7)
   kb. 8 másodpercig tanul (játssz tovább). Ha a HUD eltűnik, indul a felvétel (5 mp előfelvétellel),
   ha visszajön, leáll. A rövid téves találatok (menü, térkép) a Lomtárba kerülnek.
 
+CAPTURE KÁRTYA NÉLKÜL: XBOX / PLAYSTATION TÁVOLI JÁTÉKKAL – új a 3.2.1-ben
+  A konzol képe és hangja a PC-n fut a gyártó alkalmazásában, az rksubby pedig a Windows asztalt rögzíti.
+  1. Konzol – Xbox: Beállítások › Eszközök és kapcsolatok › Távoli funkciók › engedélyezés (Instant-On
+     energiamóddal). PlayStation 5: Beállítások › Rendszer › Remote Play › engedélyezés.
+  2. PC – Xbox alkalmazás (Microsoft Store; Konzolok ikon › távoli játék) vagy PS Remote Play (playstation.com,
+     PSN-bejelentkezés, videóminőség 1080p).
+  3. rksubby: Beállítások › Kép és hang › „Beállítás távoli játékhoz” gomb, és a monitor legyen az, amelyiken a
+     távoli játék ablaka látszik. Egy monitornál tedd az alkalmazást teljes képernyőre (a felirat-sáv a képernyő alján látszik).
+  Korlát: a távoli játék kb. 1080p / 60 fps, tömörített képpel és nagyobb késéssel, mint a capture kártya.
+
+TÖBB MONDAT EGYSZERRE – új a 3.2.1-ben
+  Ha egyszerre két vagy több mondat látszik (hosszú monológ), az új mondat az alsó helyen, élesen jelenik meg
+  (oda nézel), a régi pedig felette halványan látszik, és kb. 1,4 másodperc múlva eltűnik, hogy ne veszítsd el
+  a fonalat. Ki-be kapcsolható: Beállítások › Felirat › „Több mondatnál: a régi halványul és hamar eltűnik”.
+
 FELIRAT-OLVASÓ (F6) – új a 3.2-ben
   A program a játék saját angol feliratát leolvassa a képről (OCR, a processzoron), és azonnal fordítja.
   A hangfelismerés másodlagos: a képernyőfelirattal lefedett beszédet kihagyja, ahol nincs felirat, ott
