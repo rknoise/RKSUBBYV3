@@ -283,32 +283,43 @@ def render_subtitle(lines, partial, style, video_h, video_w):
     max_w = min(video_w - 40, int(style.get("max_width", 1500) * scale))
     color = QColor(style.get("color", "#ffffff"))
     en_color = QColor(style.get("en_color", "#d0d0d0"))
-    items = []  # (text, font, fm, color)
-    for ln in lines:
-        items.append((ln["hu"], font, fm, color))
+    # Több mondat egyszerre (a régi feljebb csúszik, az új alul jön): a régi piros, az új kék háttéren,
+    # hogy olvasás közben ne vesszen el a szem. Egyetlen mondatnál nincs színes háttér.
+    scroll_bg = bool(style.get("scroll_bg", True)) and len(lines) >= 2
+    items = []  # (text, font, fm, color, csoport)
+    for gi, ln in enumerate(lines):
+        items.append((ln["hu"], font, fm, color, gi))
         if ln.get("en"):
-            items.append((ln["en"], en_font, efm, en_color))
+            items.append((ln["en"], en_font, efm, en_color, gi))
     if partial:
-        items.append((partial, en_font, efm, QColor(170, 170, 180)))
+        items.append((partial, en_font, efm, QColor(170, 170, 180), -1))
     # sortördelés
     rows = []
-    for text, f, m, c in items:
+    for text, f, m, c, g in items:
         words, cur = text.split(), ""
         for wd in words:
             t = (cur + " " + wd).strip()
             if m.horizontalAdvance(t) > max_w and cur:
-                rows.append((cur, f, m, c))
+                rows.append((cur, f, m, c, g))
                 cur = wd
             else:
                 cur = t
         if cur:
-            rows.append((cur, f, m, c))
+            rows.append((cur, f, m, c, g))
     if not rows:
         return None
     pad = int(14 * scale)
     gap = int(4 * scale)
-    width = max(m.horizontalAdvance(t) for t, f, m, c in rows) + 2 * pad
-    height = sum(m.height() for t, f, m, c in rows) + gap * (len(rows) - 1) + 2 * pad
+    bgpad = int(10 * scale) if scroll_bg else 0          # a színes háttér kilóg a szöveg köré
+    ggap = gap + (2 * bgpad + int(6 * scale) if scroll_bg else 0)   # a mondatcsoportok közti hely
+    outer = pad + bgpad
+    y_pos, y = [], outer
+    for i, (t, f, m, c, g) in enumerate(rows):
+        y_pos.append(y)
+        nxt = rows[i + 1][4] if i + 1 < len(rows) else g
+        y += m.height() + (ggap if nxt != g else gap)
+    width = max(m.horizontalAdvance(t) for t, f, m, c, g in rows) + 2 * outer
+    height = y - gap + outer
     img = QImage(width, height, QImage.Format_ARGB32_Premultiplied)
     img.fill(Qt.transparent)
     p = QPainter(img)
@@ -318,19 +329,31 @@ def render_subtitle(lines, partial, style, video_h, video_w):
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(0, 0, 0, int(255 * float(style.get("box_opacity", 0.5)))))
         p.drawRoundedRect(0, 0, width, height, 12 * scale, 12 * scale)
-    y = pad
+    if scroll_bg:
+        old_bg = QColor(style.get("scroll_old_bg", "#b3202a"))
+        new_bg = QColor(style.get("scroll_new_bg", "#1e56c8"))
+        old_bg.setAlpha(215)
+        new_bg.setAlpha(215)
+        newest = len(lines) - 1
+        p.setPen(Qt.NoPen)
+        for g in sorted({r[4] for r in rows if r[4] >= 0}):
+            idx = [i for i, r in enumerate(rows) if r[4] == g]
+            top = y_pos[idx[0]] - bgpad
+            bottom = y_pos[idx[-1]] + rows[idx[-1]][2].height() + bgpad
+            w = max(rows[i][2].horizontalAdvance(rows[i][0]) for i in idx) + 2 * bgpad + int(8 * scale)
+            p.setBrush(new_bg if g == newest else old_bg)
+            p.drawRoundedRect((width - w) / 2, top, w, bottom - top, 10 * scale, 10 * scale)
     outline = max(2.0, fs * 0.09)
-    for t, f, m, c in rows:
+    for i, (t, f, m, c, g) in enumerate(rows):
         x = (width - m.horizontalAdvance(t)) / 2
         path = QPainterPath()
-        path.addText(x, y + m.ascent(), f, t)
-        if not style.get("box"):
+        path.addText(x, y_pos[i] + m.ascent(), f, t)
+        if not style.get("box") and not scroll_bg:
             p.setPen(QPen(QColor(0, 0, 0, 230), outline * 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
             p.setBrush(Qt.NoBrush)
             p.drawPath(path)
         p.setPen(Qt.NoPen)
         p.setBrush(c)
         p.drawPath(path)
-        y += m.height() + gap
     p.end()
     return img

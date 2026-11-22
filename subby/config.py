@@ -98,6 +98,9 @@ DEFAULTS = {
         "box_opacity": 0.5,
         "max_width": 1300,           # ennél szélesebb sor nem lesz (px), így könnyebb olvasni
         "bottom": 40,                # távolság a kép aljától (px)
+        "scroll_bg": True,           # több mondat egyszerre: a régi piros, az új kék háttéren (könnyebb követni)
+        "scroll_old_bg": "#b3202a",  # a feljebb csúszott (régi) mondat háttere
+        "scroll_new_bg": "#1e56c8",  # az újonnan érkezett mondat háttere
     },
     "overlay_screen": 0,             # a beépített Qt-ablak (--overlay) melyik monitoron legyen
     "log_enabled": True,             # sub_log.tsv: EN / HU / késés mondatonként
@@ -236,7 +239,7 @@ class Config:
                             if sk not in default:
                                 continue
                             sv = _coerce(default[sk], sv)
-                            if sk in ("color", "en_color") and not _COLOR_RE.fullmatch(sv):
+                            if sk in ("color", "en_color", "scroll_old_bg", "scroll_new_bg") and not _COLOR_RE.fullmatch(sv):
                                 continue
                             new[sk] = sv
                         new["font_size"] = max(12, min(120, new["font_size"]))
