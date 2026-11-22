@@ -6,6 +6,16 @@
 
 Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes jelét kezeli**. Mutatja pl az Xbox, Playstation képét 120 Hz-en,  felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal), és **capture kártya nélkül** is használható: az Xbox vagy PlayStation távoli játékának ablakát rögzíti (lásd lent). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
+## Magyar felirat GTA 6-hoz és más játékokhoz – magyarítás helyett élő fordítás
+
+Ha **GTA 6 magyar feliratot**, **magyarítást** vagy **magyarosítást** keresel: az rksubby nem módosítja a játékot, és nem telepít magyarítást a játékfájlok közé. A játék közben, **élőben** írja a magyar feliratot: leolvassa a játék angol feliratát (OCR), felismeri a beszédet, és lefordítja magyarra (DeepL, lokális AI vagy Google). Így **bármelyik angol nyelvű játékhoz** használható, nemcsak a GTA VI-hoz, és nem kell megvárni, hogy elkészüljön hozzá a magyarítás.
+
+- **Xboxon és PlayStationön** capture kártyával, vagy **capture kártya nélkül** az Xbox / PS Remote Play alkalmazással (lásd lent).
+- **PC-s játékoknál** a Windows asztalt rögzíti és feliratozza.
+- Közben felvesz, és a felvétel mellé `.srt` feliratot ment.
+
+*Nem hivatalos eszköz: nem áll kapcsolatban a Rockstar Games-szel, a Take-Two-val vagy a konzolgyártókkal, és a játékhoz nem nyúl hozzá (csak a képet és a hangot dolgozza fel).*
+
 ## Új a 3.2-ben: pontosabb, jobb feliratozás
 
 <p align="center"><img src="docs/rksubby_v3_2_felirat.jpg" alt="rksubby 3.2: a játék angol feliratát leolvassa, alatta a magyar felirat" width="100%"></p>
