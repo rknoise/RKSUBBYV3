@@ -6,6 +6,13 @@
 
 Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes jelét kezeli**. Mutatja pl az Xbox, Playstation képét 120 Hz-en,  felveszi, és közben élőben magyar feliratot ír az angol beszédhez. Egy kattintással **a PC-n futó játékra, programra vagy videóra** is átállítható (Windows asztal). A RECentral, az OBS és a régi rksubbyV2 helyett egyetlen program.
 
+## Új a 3.2-ben: pontosabb, jobb feliratozás
+
+<p align="center"><img src="docs/rksubby_v3_2_felirat.jpg" alt="rksubby 3.2: a játék angol feliratát leolvassa, alatta a magyar felirat" width="100%"></p>
+<p align="center"><sub>Játék közben: felül a játék saját angol felirata (leolvasva a képről), alatta sárgával a magyar felirat.</sub></p>
+
+Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó, középső részén feliratot lát, azt részesíti előnben, és **a hallás és a képernyőfelirat együtt** alapján készíti a magyar feliratot. Így a felirat pontosabb, a magyar szöveg a játék feliratával egy időben jelenik meg, és az OCR a processzoron fut, nem terheli a videokártyát. Ahol nincs felirat a képen, ott minden megy tovább a hangból, mint eddig. Részletek lent, a „Felirat-olvasó” fejezetben.
+
 <p align="center"><img src="docs/rksubby_v3_screenshot.jpg" alt="rksubby V3: élő magyar felirat az Xbox képén, oldalt az utolsó lefordított mondatok" width="100%"></p>
 <p align="center"><sub>Élő magyar felirat egy angol videóhoz az Xboxról (1080p · 120 fps, DeepL). Jobbra a feliratozó állapota és az utolsó lefordított mondatok.</sub></p>
 
