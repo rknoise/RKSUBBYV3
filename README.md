@@ -28,9 +28,6 @@ Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó,
 <p align="center"><img src="docs/rksubby_v3_2_1_halvanyodo.jpg" alt="rksubby 3.2.1: a régi mondat halványan felül, az új mondat élesen alul" width="100%"></p>
 <p align="center"><sub>Két mondat egyszerre: felül halványan a régi (már olvasott) mondat, alul élesen az új. Röviddel utána a régi eltűnik.</sub></p>
 
-<p align="center"><img src="docs/rksubby_v3_screenshot.jpg" alt="rksubby V3: élő magyar felirat az Xbox képén, oldalt az utolsó lefordított mondatok" width="100%"></p>
-<p align="center"><sub>Élő magyar felirat egy angol videóhoz az Xboxról (1080p · 120 fps, DeepL). Jobbra a feliratozó állapota és az utolsó lefordított mondatok.</sub></p>
-
 ## Újdonságok a V3-ban
 
 - **Játékfelirat-olvasó (új a 3.2-ben).** A program a játék *saját angol feliratát* is leolvassa a képről (OCR), és azonnal fordítja: a magyar felirat a játék feliratával egy időben jelenik meg, a szöveg pontosabb, mint a hallott, és nem terheli a GPU-t.
