@@ -11,7 +11,7 @@ Az rksubby V3 már nem csak feliratoz: **a capture kártya vagy desktop teljes j
 <p align="center"><img src="docs/rksubby_v3_2_felirat.jpg" alt="rksubby 3.2: a játék angol feliratát leolvassa, alatta a magyar felirat" width="100%"></p>
 <p align="center"><sub>Játék közben: felül a játék saját angol felirata (leolvasva a képről), alatta sárgával a magyar felirat.</sub></p>
 
-Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó, középső részén feliratot lát, azt részesíti előnben, és **a hallás és a képernyőfelirat együtt** alapján készíti a magyar feliratot. Így a felirat pontosabb, a magyar szöveg a játék feliratával egy időben jelenik meg, és az OCR a processzoron fut, nem terheli a videokártyát. Ahol nincs felirat a képen, ott minden megy tovább a hangból, mint eddig. Részletek lent, a „Felirat-olvasó” fejezetben.
+Az rksubby **3.2** már nem csak hallás után feliratoz. Ha a képernyő alsó, középső részén feliratot lát, azt részesíti előnyben, és **a hallás és a képernyőfelirat együtt** alapján készíti a magyar feliratot. Így a felirat pontosabb, a magyar szöveg a játék feliratával egy időben jelenik meg, és az OCR a processzoron fut, nem terheli a videokártyát. Ahol nincs felirat a képen, ott minden megy tovább a hangból, mint eddig. Részletek lent, a „Felirat-olvasó” fejezetben.
 
 **Új a 3.2.1-ben: könnyebb olvasás hosszú monológnál.** Ha egyszerre két vagy több mondat látszik, az új mondat az alsó helyen marad élesen (oda nézel), a régi pedig felette elhalványul, és röviddel utána eltűnik. Így nem vész el a fonal. A Beállítások › Felirat oldalon ki-be kapcsolható.
 
